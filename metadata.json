@@ -1,0 +1,5 @@
+{
+  "name": "Seep Online",
+  "description": "A beautiful implementation of the classic Indian card game Seep (Sweep). Play against intelligent AI opponents powered by Gemini, featuring a rich UI and standard rules.",
+  "requestFramePermissions": []
+}
