@@ -433,12 +433,17 @@ export default function App() {
   };
 
   // ── Trick completion: when 4 cards played, reveal winner, sweep cards ──
+  // Runs on every peer (host and clients) so each one animates locally.
+  // The reducer is deterministic, so everyone computes the same post-trick
+  // state; the host's SYNC_STATE arriving during the animation gets queued
+  // via isOrchestratingRef / pendingSyncStateRef and applied after.
+  // Only the host dispatches END_ROUND — clients receive that via SYNC_STATE.
   useEffect(() => {
     if (state.gamePhase !== 'PLAYING') return;
     if (state.currentTrick.length !== NUM_PLAYERS) return;
     if (trickCompletingRef.current) return;
-    if (!isHost && isMultiplayer) return; // host-driven
     trickCompletingRef.current = true;
+    isOrchestratingRef.current = true;
     (async () => {
       await new Promise(r => setTimeout(r, TRICK_REVEAL_DELAY_MS));
 
@@ -458,11 +463,24 @@ export default function App() {
         setSweepingToPlayer(null);
       });
 
+      isOrchestratingRef.current = false;
+      const pending = pendingSyncStateRef.current;
+      if (pending) {
+        pendingSyncStateRef.current = null;
+        const me = pending.players.find(p => p.peerId === peerIdRef.current);
+        if (me) setMyIndex(me.id);
+        dispatch({ type: 'SET_GAME_STATE', payload: pending });
+      }
+
       trickCompletingRef.current = false;
 
-      // After last trick, finalize round.
+      // After last trick, finalize round — host only, clients follow via SYNC_STATE.
       const postState = stateRef.current;
-      if (postState.completedTricks.length >= NUM_TRICKS && postState.gamePhase === 'PLAYING') {
+      if (
+        postState.completedTricks.length >= NUM_TRICKS &&
+        postState.gamePhase === 'PLAYING' &&
+        (!isMultiplayer || isHost)
+      ) {
         await new Promise(r => setTimeout(r, 500));
         dispatch({ type: 'END_ROUND' });
       }
