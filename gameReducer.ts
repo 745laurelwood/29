@@ -45,6 +45,9 @@ export const INITIAL_STATE: GameState = {
   highBidder: -1,
   passedPlayers: [],
   lastBids: [null, null, null, null],
+  pairActive: false,
+  pairPriority: -1,
+  pairChallenger: -1,
 
   bidWinner: -1,
   bidValue: 0,
@@ -196,6 +199,9 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         highBidder: -1,
         passedPlayers: [],
         lastBids: Array(NUM_PLAYERS).fill(null),
+        pairActive: false,
+        pairPriority: -1,
+        pairChallenger: -1,
         bidWinner: -1,
         bidValue: 0,
         trumpSuit: null,
@@ -220,22 +226,64 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       if (state.gamePhase !== 'BIDDING') return state;
       if (state.biddingTurn !== playerIndex) return state;
       if (state.passedPlayers.includes(playerIndex)) return state;
-      const min = state.currentBid == null ? MIN_BID : state.currentBid + 1;
-      if (amount < min || amount > MAX_BID) return state;
+
+      // Bid validity:
+      //  - First bid ever: amount >= MIN_BID.
+      //  - If this player is the pair's PRIORITY (the original outbid side of
+      //    the current pair), they may MATCH (amount === currentBid) or raise.
+      //  - Everyone else (including the pair challenger) must strictly raise.
+      const isPriority = state.pairActive && playerIndex === state.pairPriority;
+      if (state.currentBid == null) {
+        if (amount < MIN_BID || amount > MAX_BID) return state;
+      } else {
+        const minAllowed = isPriority ? state.currentBid : state.currentBid + 1;
+        if (amount < minAllowed || amount > MAX_BID) return state;
+      }
+
       const bidder = state.players[playerIndex];
       const log = logPush(state.gameLog, `${bidder.name} bids ${amount}`);
       const newLastBids = [...state.lastBids];
       newLastBids[playerIndex] = amount;
+
+      const isMatch = state.currentBid != null && amount === state.currentBid;
+
+      // A new pair forms when a raise happens outside of an active pair.
+      // The priority (match-capable side) is the just-outbid player; the
+      // challenger (raise-only side) is the raiser. These stay fixed for the
+      // life of the pair — the priority keeps match privilege throughout.
+      const justOutbid = state.highBidder;
+      const formsNewPair =
+        !isMatch &&
+        !state.pairActive &&
+        justOutbid >= 0 &&
+        justOutbid !== playerIndex &&
+        !state.passedPlayers.includes(justOutbid);
+
+      const newPairActive = formsNewPair ? true : state.pairActive;
+      const newPairPriority = formsNewPair ? justOutbid : state.pairPriority;
+      const newPairChallenger = formsNewPair ? playerIndex : state.pairChallenger;
+
       const nextState: GameState = {
         ...state,
         currentBid: amount,
         highBidder: playerIndex,
+        pairActive: newPairActive,
+        pairPriority: newPairPriority,
+        pairChallenger: newPairChallenger,
         lastBids: newLastBids,
         gameLog: log,
       };
-      const next = nextBidderTurn(nextState);
+
+      // Next turn:
+      //  - If pair is active, the other pair member gets the turn.
+      //  - Otherwise (no pair), next clockwise non-passed non-highBidder.
+      let next: number;
+      if (newPairActive) {
+        next = (playerIndex === newPairPriority) ? newPairChallenger : newPairPriority;
+      } else {
+        next = nextBidderTurn(nextState);
+      }
       if (next === playerIndex) {
-        // Auction closed.
         return finalizeAuction({ ...nextState, biddingTurn: playerIndex });
       }
       return { ...nextState, biddingTurn: next };
@@ -252,9 +300,21 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       const newLastBids = [...state.lastBids];
       newLastBids[playerIndex] = 'pass';
 
+      // A pass by a pair member dissolves the pair; the high bidder will face
+      // a fresh challenger via clockwise turn order.
+      const passerIsPairMember = state.pairActive && (
+        playerIndex === state.pairPriority || playerIndex === state.pairChallenger
+      );
+      const newPairActive = passerIsPairMember ? false : state.pairActive;
+      const newPairPriority = passerIsPairMember ? -1 : state.pairPriority;
+      const newPairChallenger = passerIsPairMember ? -1 : state.pairChallenger;
+
       const nextState: GameState = {
         ...state,
         passedPlayers: newPassed,
+        pairActive: newPairActive,
+        pairPriority: newPairPriority,
+        pairChallenger: newPairChallenger,
         lastBids: newLastBids,
         gameLog: log,
       };
@@ -279,9 +339,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       }
       const next = nextBidderTurn(nextState);
       if (next === nextState.highBidder || nextState.highBidder === -1 && newPassed.length === NUM_PLAYERS) {
-        // No competition left — close auction.
         if (nextState.highBidder === -1) {
-          // Shouldn't happen (the dealer case is handled above), but guard:
           return nextState;
         }
         return finalizeAuction({ ...nextState, biddingTurn: nextState.highBidder });

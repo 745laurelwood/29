@@ -5,7 +5,7 @@ import {
   TEAM_LABELS,
   Z_HUD, Z_ACTION_BAR, Z_OVERLAY, Z_MODAL,
 } from '../constants';
-import { MIN_BID, MAX_BID, SUIT_NAMES, ROYALS_ADJUSTMENT } from '../rules';
+import { MIN_BID, MAX_BID, SUIT_NAMES, ROYALS_ADJUSTMENT, getPointsForCard } from '../rules';
 
 /** HUD panel — game-points, bid, trump, tricks. */
 export function HUD({
@@ -30,8 +30,12 @@ export function HUD({
   const team0IsLeader = leadingTeam === 0;
   const team1IsLeader = leadingTeam === 1;
 
-  const tricks0 = state.players.filter(p => p.team === 0).reduce((s, p) => s + p.tricksWon, 0);
-  const tricks1 = state.players.filter(p => p.team === 1).reduce((s, p) => s + p.tricksWon, 0);
+  const sumTeamRoundPts = (team: 0 | 1) =>
+    state.players
+      .filter(p => p.team === team)
+      .reduce((sum, p) => sum + p.capturedCards.reduce((s, c) => s + getPointsForCard(c), 0), 0);
+  const roundPts0 = sumTeamRoundPts(0);
+  const roundPts1 = sumTeamRoundPts(1);
 
   const bidder = state.bidWinner >= 0 ? state.players[state.bidWinner] : null;
   const showTrumpToMe = !!(state.trumpSuit && (state.trumpRevealed || myIndex === state.bidWinner));
@@ -77,29 +81,12 @@ export function HUD({
               </span>
             </div>
           )}
-          {showTrumpToMe && state.trumpSuit && (
-            <div>
-              <span>Trump</span>{' '}
-              <span style={{ color: 'var(--fg)' }}>
-                {SUIT_SYMBOLS[state.trumpSuit]} {SUIT_NAMES[state.trumpSuit]}
-              </span>
-              {!state.trumpRevealed && (
-                <span style={{ color: 'var(--dim)', marginLeft: 8, fontSize: 11 }}>(hidden)</span>
-              )}
-            </div>
-          )}
-          {!showTrumpToMe && state.trumpSuit && !state.trumpRevealed && state.gamePhase === 'PLAYING' && (
-            <div>
-              <span>Trump</span>{' '}
-              <span style={{ color: 'var(--dim)' }}>hidden</span>
-            </div>
-          )}
           {state.gamePhase === 'PLAYING' && (
             <div>
-              <span>Tricks</span>{' '}
-              <span style={{ color: 'var(--accent)' }}>A {tricks0}</span>
+              <span>Round</span>{' '}
+              <span style={{ color: 'var(--accent)' }}>A {roundPts0}</span>
               <span> / </span>
-              <span style={{ color: 'var(--red)' }}>B {tricks1}</span>
+              <span style={{ color: 'var(--red)' }}>B {roundPts1}</span>
             </div>
           )}
           {isMultiplayer && roomId && (

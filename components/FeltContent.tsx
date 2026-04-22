@@ -167,15 +167,14 @@ export const FeltContent: React.FC = () => {
             {current.id === myIndex ? 'Your turn to bid' : `${current.name} is bidding...`}
           </div>
         )}
-        {canBid && (
-          <div className="mt-2" style={{ width: 'min(92vw, 28rem)' }}>
-            <BiddingControls
-              minBidAmount={minBidAmount}
-              onBid={executeBid}
-              onPass={executePass}
-            />
-          </div>
-        )}
+        <div className="mt-2" style={{ width: 'min(92vw, 28rem)' }}>
+          <BiddingControls
+            minBidAmount={minBidAmount}
+            onBid={executeBid}
+            onPass={executePass}
+            disabled={!canBid}
+          />
+        </div>
         <div className="flex flex-wrap gap-2 justify-center mt-2">
           {state.players.map(p => {
             const passed = state.passedPlayers.includes(p.id);

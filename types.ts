@@ -58,6 +58,9 @@ export interface GameState {
   highBidder: number;         // player index with current highest bid (-1 if none)
   passedPlayers: number[];    // indices who have passed
   lastBids: (number | 'pass' | null)[]; // each player's most recent action (null = not yet acted)
+  pairActive: boolean;         // true while an auction pair is in progress
+  pairPriority: number;        // within an active pair, the original high-bidder (-1 if no pair); keeps match privilege throughout the pair
+  pairChallenger: number;      // within an active pair, the player who opened the pair by raising (-1 if no pair); must always raise strictly
 
   // Contract
   bidWinner: number;          // -1 until bidding completes

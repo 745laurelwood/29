@@ -5,7 +5,7 @@ import { LastMoveBanner, TrumpBadge } from '../components/panels';
 import { FeltContent } from '../components/FeltContent';
 import { SharedOverlays } from '../components/SharedOverlays';
 import { useGame } from '../GameContext';
-import { compareCardStrength, NUM_PLAYERS } from '../rules';
+import { compareCardStrength, NUM_PLAYERS, getPointsForCard } from '../rules';
 import { Card } from '../types';
 
 const DRAG_THRESHOLD_PX = 6;
@@ -36,6 +36,13 @@ export const MobileView: React.FC = () => {
 
   const total0 = state.totalScores.team0;
   const total1 = state.totalScores.team1;
+
+  const sumTeamRoundPts = (team: 0 | 1) =>
+    state.players
+      .filter(p => p.team === team)
+      .reduce((sum, p) => sum + p.capturedCards.reduce((s, c) => s + getPointsForCard(c), 0), 0);
+  const roundPts0 = sumTeamRoundPts(0);
+  const roundPts1 = sumTeamRoundPts(1);
 
   const trickCardIds = new Set(state.currentTrick.map(p => p.card.id));
 
@@ -148,6 +155,22 @@ export const MobileView: React.FC = () => {
               </span>
             </div>
           </div>
+          {state.gamePhase === 'PLAYING' && (
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 11,
+                letterSpacing: '0.06em',
+                textAlign: 'center',
+                color: 'var(--dim)',
+              }}
+            >
+              <span>Round</span>{' '}
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>A {roundPts0}</span>
+              <span> / </span>
+              <span style={{ color: 'var(--red)', fontWeight: 600 }}>B {roundPts1}</span>
+            </div>
+          )}
         </header>
 
         <section className="m-opps">

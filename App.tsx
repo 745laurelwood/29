@@ -498,8 +498,9 @@ export default function App() {
     const turn = state.biddingTurn;
     const curBid = state.currentBid;
     const hand = bidder.hand;
+    const isReclaimer = state.pairActive && state.pairPriority === turn;
     const timer = setTimeout(() => {
-      const decision = aiChooseBid(hand, curBid);
+      const decision = aiChooseBid(hand, curBid, isReclaimer);
       if (decision === 'PASS') {
         dispatch({ type: 'PASS_BID', payload: { playerIndex: turn } });
       } else {
@@ -509,7 +510,7 @@ export default function App() {
       aiThinkingRef.current = false;
     }, AI_BID_DELAY_MS);
     return () => { clearTimeout(timer); aiThinkingRef.current = false; };
-  }, [state.gamePhase, state.biddingTurn, state.currentBid, isHost, isMultiplayer]);
+  }, [state.gamePhase, state.biddingTurn, state.currentBid, state.pairActive, state.pairPriority, isHost, isMultiplayer]);
 
   // ── AI: trump selection ──
   useEffect(() => {
@@ -625,7 +626,12 @@ export default function App() {
 
   // ── Bidding helpers ──
   const canBid = state.gamePhase === 'BIDDING' && state.biddingTurn === myIndex;
-  const minBidAmount = state.currentBid == null ? MIN_BID : state.currentBid + 1;
+  // Reclaimers (the player just outbid) may match the current bid; everyone
+  // else must strictly raise.
+  const iAmReclaimer = state.pairActive && state.pairPriority === myIndex;
+  const minBidAmount = state.currentBid == null
+    ? MIN_BID
+    : (iAmReclaimer ? state.currentBid : state.currentBid + 1);
 
   // ── Trump helpers ──
   const canChooseTrump = state.gamePhase === 'CHOOSING_TRUMP' && state.bidWinner === myIndex;
@@ -760,7 +766,11 @@ export default function App() {
 // AI heuristics
 // ============================================================
 
-function aiChooseBid(hand: Card[], currentBid: number | null): number | 'PASS' {
+function aiChooseBid(
+  hand: Card[],
+  currentBid: number | null,
+  isReclaimer: boolean,
+): number | 'PASS' {
   // Simple hand-strength metric: sum card values + extras for Jacks/9s.
   let strength = 0;
   for (const c of hand) {
@@ -776,7 +786,10 @@ function aiChooseBid(hand: Card[], currentBid: number | null): number | 'PASS' {
 
   // Estimate fair bid target around 16 + strength/3.
   const estimate = Math.min(22, Math.max(MIN_BID, 14 + Math.floor(strength / 3)));
-  const minToBid = currentBid == null ? MIN_BID : currentBid + 1;
+  // Reclaimers may match (== currentBid); everyone else must strictly raise.
+  const minToBid = currentBid == null
+    ? MIN_BID
+    : (isReclaimer ? currentBid : currentBid + 1);
   if (minToBid > estimate) return 'PASS';
   if (Math.random() < 0.15 && minToBid <= estimate - 1) return minToBid;
   return Math.min(MAX_BID, minToBid);
