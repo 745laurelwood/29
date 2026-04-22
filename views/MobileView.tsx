@@ -144,7 +144,7 @@ export const MobileView: React.FC = () => {
               <span className="v">
                 {state.bidValue > 0
                   ? `${state.bidValue + state.bidAdjustment}`
-                  : total0 === total1 ? '—' : `${total0 > total1 ? 'A' : 'B'} +${Math.abs(total0 - total1)}`}
+                  : total0 === total1 ? '-' : `${total0 > total1 ? 'A' : 'B'} +${Math.abs(total0 - total1)}`}
               </span>
             </div>
           </div>

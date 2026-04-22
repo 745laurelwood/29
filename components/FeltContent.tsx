@@ -278,7 +278,7 @@ export const FeltContent: React.FC = () => {
     <div className="relative w-full min-h-[160px] sm:min-h-[220px] flex items-center justify-center">
       {state.currentTrick.length === 0 && (
         <div className="text-xs sm:text-sm opacity-60" style={{ color: 'var(--fg-soft)' }}>
-          Trick {state.completedTricks.length + 1} of {NUM_TRICKS} —{' '}
+          Trick {state.completedTricks.length + 1} of {NUM_TRICKS}.{' '}
           {state.players[state.currentTurn]
             ? (state.currentTurn === myIndex ? 'your lead' : `${state.players[state.currentTurn].name} leads`)
             : ''

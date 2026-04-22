@@ -21,15 +21,34 @@ export const SharedOverlays: React.FC = () => {
   const me = state.players[myIndex];
 
   const showTrumpToast = revealPhase === 'trump-toast' && !!state.trumpSuit;
-  const showRoyalsPrompt = revealPhase === 'royals-prompt' && !!me && !!state.trumpSuit;
+  const royalsPromptReady = revealPhase === 'royals-prompt' && !!me && !!state.trumpSuit;
   const showRoyalsAnim = revealPhase === 'royals-toast' && !!state.royalsDeclared;
+
+  // Delay the reveal-trump and royals prompts by 1s so the player can see the
+  // previous card's play-animation settle before the modal pops up.
+  const PROMPT_DELAY_MS = 1000;
+  const [revealPromptVisible, setRevealPromptVisible] = React.useState(false);
+  const [royalsPromptVisible, setRoyalsPromptVisible] = React.useState(false);
+  React.useEffect(() => {
+    if (!needRevealDecision) { setRevealPromptVisible(false); return; }
+    const t = window.setTimeout(() => setRevealPromptVisible(true), PROMPT_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [needRevealDecision]);
+  React.useEffect(() => {
+    if (!royalsPromptReady) { setRoyalsPromptVisible(false); return; }
+    const t = window.setTimeout(() => setRoyalsPromptVisible(true), PROMPT_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [royalsPromptReady]);
+
+  const showRevealPrompt = needRevealDecision && revealPromptVisible;
+  const showRoyalsPrompt = royalsPromptReady && royalsPromptVisible;
 
   return (
     <>
       {showMyCaptures && me && (
         <div
           className="fixed inset-0 flex items-center justify-center p-4"
-          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.72)' }}
           onClick={() => setShowMyCaptures(false)}
         >
           <div
@@ -77,10 +96,10 @@ export const SharedOverlays: React.FC = () => {
         </div>
       )}
 
-      {needRevealDecision && state.ledSuit && (
+      {showRevealPrompt && state.ledSuit && (
         <div
           className="fixed inset-0 flex items-center justify-center p-4"
-          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.72)' }}
         >
           <div className="glass-panel p-6 rounded-2xl max-w-sm w-full text-center">
             <h2 className="text-xl font-display mb-2" style={{ color: 'var(--accent)' }}>Reveal trump?</h2>
@@ -110,7 +129,7 @@ export const SharedOverlays: React.FC = () => {
       {showRoyalsPrompt && me && state.trumpSuit && (
         <div
           className="fixed inset-0 flex items-center justify-center p-4"
-          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.72)' }}
         >
           <div className="glass-panel p-6 rounded-2xl max-w-sm w-full text-center">
             <h2 className="text-xl font-display mb-2" style={{ color: 'var(--gold)' }}>Royals!</h2>
@@ -176,8 +195,8 @@ export const SharedOverlays: React.FC = () => {
       })()}
 
       {isPaused && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
-          <div className="glass-panel p-6 sm:p-9 rounded-2xl max-w-md w-full text-center animate-pulse" style={{ border: '1px solid rgba(232,146,154,0.25)' }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.82)' }}>
+          <div className="glass-panel p-6 sm:p-9 rounded-2xl max-w-md w-full text-center" style={{ border: '1px solid rgba(232,146,154,0.25)' }}>
             <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-80">
               <svg className="w-full h-full" style={{ color: 'var(--red)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />

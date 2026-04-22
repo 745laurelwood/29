@@ -60,7 +60,7 @@ export function HUD({
               className="font-display text-sm sm:text-base leading-none tabular-nums"
               style={{ color: leadingTeam === 0 ? 'var(--accent)' : leadingTeam === 1 ? 'var(--red)' : 'var(--dim)' }}
             >
-              {leadingTeam === null ? '—' : `${TEAM_LABELS[leadingTeam]} +${Math.abs(lead)}`}
+              {leadingTeam === null ? '-' : `${TEAM_LABELS[leadingTeam]} +${Math.abs(lead)}`}
             </span>
           </div>
         </div>
