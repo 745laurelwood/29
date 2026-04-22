@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <defs>
+    <radialGradient id="felt" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#162633"/>
+      <stop offset="100%" stop-color="#0a141c"/>
+    </radialGradient>
+    <linearGradient id="num" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8fc6ff"/>
+      <stop offset="100%" stop-color="#6fb0ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded background (follows iOS masking) -->
+  <rect width="180" height="180" rx="40" ry="40" fill="#0d1821"/>
+  <rect x="8" y="8" width="164" height="164" rx="32" ry="32" fill="url(#felt)" stroke="rgba(111,176,255,0.28)" stroke-width="1.5"/>
+
+  <!-- Corner suit accents -->
+  <g font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="bold">
+    <text x="24"  y="40"  fill="#d8b061" text-anchor="start">♠</text>
+    <text x="156" y="40"  fill="#e8929a" text-anchor="end">♥</text>
+    <text x="24"  y="160" fill="#e8929a" text-anchor="start">♦</text>
+    <text x="156" y="160" fill="#d8b061" text-anchor="end">♣</text>
+  </g>
+
+  <!-- "29" -->
+  <text x="90" y="118"
+        font-family="Fredoka, 'Trebuchet MS', Arial, sans-serif"
+        font-size="96"
+        font-weight="700"
+        letter-spacing="-3"
+        text-anchor="middle"
+        fill="url(#num)">29</text>
+</svg>
