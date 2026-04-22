@@ -265,10 +265,10 @@ export const FeltContent: React.FC = () => {
   };
 
   const positionClasses: Record<'bottom' | 'left' | 'top' | 'right', string> = {
-    bottom: 'translate-y-10 sm:translate-y-14 md:translate-y-20',
-    top:    '-translate-y-10 sm:-translate-y-14 md:-translate-y-20',
-    left:   '-translate-x-12 sm:-translate-x-20 md:-translate-x-28',
-    right:  'translate-x-12 sm:translate-x-20 md:translate-x-28',
+    bottom: 'translate-y-14 sm:translate-y-14 md:translate-y-20',
+    top:    '-translate-y-14 sm:-translate-y-14 md:-translate-y-20',
+    left:   '-translate-x-16 sm:-translate-x-20 md:-translate-x-28',
+    right:  'translate-x-16 sm:translate-x-20 md:translate-x-28',
   };
 
   const trickCardIds = new Set(state.currentTrick.map(p => p.card.id));

@@ -113,13 +113,13 @@ export const SharedOverlays: React.FC = () => {
                 className="flex-1 py-2.5 rounded-xl text-sm"
                 style={{ background: 'var(--bg-1)', color: 'var(--fg-soft)', border: '1px solid var(--line)' }}
               >
-                Play without revealing
+                Don't Reveal
               </button>
               <button
                 onClick={executeRevealTrump}
                 className="btn-accent flex-1 py-2.5 rounded-xl text-sm font-semibold"
               >
-                Reveal trump
+                Reveal
               </button>
             </div>
           </div>
