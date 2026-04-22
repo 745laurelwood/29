@@ -87,6 +87,12 @@ export const TEAM_TEXT_COLORS: Record<0 | 1, string> = {
 // ============================================================
 
 export const MAX_LOG_ENTRIES = 50;
+
+/** Maximum length of a single chat message. */
+export const CHAT_MAX_LEN = 200;
+
+/** Maximum number of chat messages kept in the game state. */
+export const CHAT_MAX_HISTORY = 100;
 export const PEER_ID_DISPLAY_LENGTH = 6;
 export const EMPTY_SLOT_NAME = 'Waiting...';
 

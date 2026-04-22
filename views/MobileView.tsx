@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CardComponent } from '../components/CardComponent';
 import { LastMoveBanner, TrumpBadge } from '../components/panels';
@@ -6,9 +6,108 @@ import { FeltContent } from '../components/FeltContent';
 import { SharedOverlays } from '../components/SharedOverlays';
 import { useGame } from '../GameContext';
 import { compareCardStrength, NUM_PLAYERS, getPointsForCard } from '../rules';
-import { Card } from '../types';
+import { Card, ChatMessage } from '../types';
+import { CHAT_MAX_LEN } from '../constants';
 
 const DRAG_THRESHOLD_PX = 6;
+
+function MobileChatBody({ messages, myIndex, onSend }: {
+  messages: ChatMessage[];
+  myIndex: number;
+  onSend: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+  const submit = () => {
+    const text = draft.trim();
+    if (!text) return;
+    onSend(text);
+    setDraft('');
+  };
+  return (
+    <>
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1, minHeight: 0,
+          overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: 6,
+          paddingBottom: 8,
+        }}
+      >
+        {messages.length === 0 && (
+          <div style={{ textAlign: 'center', color: 'var(--dim)', fontSize: 13, padding: '32px 0' }}>
+            No messages yet. Say hi!
+          </div>
+        )}
+        {messages.map(m => {
+          const mine = m.playerIndex === myIndex;
+          const nameColor = m.team === 0 ? 'var(--accent)' : 'var(--red)';
+          return (
+            <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+              <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: nameColor }}>
+                {mine ? 'You' : m.name}
+              </span>
+              <span
+                style={{
+                  fontSize: 14,
+                  lineHeight: 1.35,
+                  padding: '6px 10px',
+                  borderRadius: 12,
+                  maxWidth: '85%',
+                  wordBreak: 'break-word',
+                  whiteSpace: 'pre-wrap',
+                  background: mine ? 'rgba(46, 72, 108, 0.9)' : 'rgba(28, 48, 74, 0.9)',
+                  border: '1px solid var(--line-soft)',
+                  color: 'var(--fg)',
+                }}
+              >
+                {m.text}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <form
+        onSubmit={e => { e.preventDefault(); submit(); }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 8 }}
+      >
+        <input
+          type="text"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          maxLength={CHAT_MAX_LEN}
+          placeholder="Type a message..."
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="sentences"
+          spellCheck={false}
+          name="nine-chat-input"
+          style={{ flex: 1, background: 'transparent', outline: 'none', fontSize: 16, color: 'var(--fg)' }}
+        />
+        <button
+          type="submit"
+          disabled={!draft.trim()}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            padding: '6px 14px',
+            borderRadius: 999,
+            background: draft.trim() ? 'var(--accent)' : 'var(--bg-2)',
+            color: draft.trim() ? '#06121f' : 'var(--dimmer)',
+            border: '1px solid var(--line)',
+            cursor: draft.trim() ? 'pointer' : 'not-allowed',
+          }}
+        >
+          Send
+        </button>
+      </form>
+    </>
+  );
+}
 
 export const MobileView: React.FC = () => {
   const {
@@ -16,10 +115,48 @@ export const MobileView: React.FC = () => {
     topPlayer, rightPlayer, leftPlayer, bottomPlayer,
     setShowMyCaptures,
     mobileLogOpen, setMobileLogOpen,
+    mobileChatOpen, setMobileChatOpen,
+    chatUnread, markChatRead, sendChat,
     mobileOpponentSource, sweepingToPlayer,
     legalCardIds, executePlayCard,
     revealPhase,
   } = useGame();
+
+  const chatEnabled = !!state.roomId && state.players.some(p => p.isHuman && p.id !== myIndex);
+
+  // Pin .m-phone to window.innerHeight (the LAYOUT viewport). iOS shrinks the
+  // VISUAL viewport when the keyboard opens — so 100dvh collapses and
+  // sometimes doesn't fully restore after the keyboard closes, leaving a dead
+  // strip of empty space under the page. The layout viewport stays stable
+  // across keyboard toggles, so window.innerHeight is the reliable anchor.
+  useEffect(() => {
+    const apply = () => {
+      const phone = document.querySelector('.m-phone') as HTMLElement | null;
+      if (!phone) return;
+      const h = window.innerHeight;
+      phone.style.height = `${h}px`;
+      phone.style.maxHeight = `${h}px`;
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    window.addEventListener('orientationchange', apply);
+    return () => {
+      window.removeEventListener('resize', apply);
+      window.removeEventListener('orientationchange', apply);
+      const phone = document.querySelector('.m-phone') as HTMLElement | null;
+      if (phone) {
+        phone.style.height = '';
+        phone.style.maxHeight = '';
+      }
+    };
+  }, []);
+
+  const closeChat = () => {
+    const el = document.activeElement;
+    if (el instanceof HTMLElement) el.blur();
+    setMobileChatOpen(false);
+    markChatRead();
+  };
 
   const royalsName = state.royalsDeclared
     ? state.players[state.royalsDeclared.playerIndex]?.name
@@ -294,10 +431,47 @@ export const MobileView: React.FC = () => {
                 </button>
               )}
             </div>
-            <button className="log-btn" onClick={() => setMobileLogOpen(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-              Log
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {chatEnabled && (
+                <button
+                  className="log-btn"
+                  onClick={() => { setMobileChatOpen(true); markChatRead(); }}
+                  style={{ position: 'relative' }}
+                  aria-label="Open chat"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                  </svg>
+                  Chat
+                  {chatUnread > 0 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        minWidth: 16,
+                        height: 16,
+                        padding: '0 4px',
+                        borderRadius: 999,
+                        background: 'var(--accent)',
+                        color: '#06121f',
+                        fontSize: 9,
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {chatUnread > 99 ? '99+' : chatUnread}
+                    </span>
+                  )}
+                </button>
+              )}
+              <button className="log-btn" onClick={() => setMobileLogOpen(true)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                Log
+              </button>
+            </div>
           </div>
         )}
 
@@ -367,6 +541,32 @@ export const MobileView: React.FC = () => {
                   <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 13 }}>No events yet.</div>
                 )}
               </div>
+            </div>
+          </>
+        )}
+
+        {mobileChatOpen && chatEnabled && (
+          <>
+            <div
+              className="m-sheet-backdrop"
+              onClick={closeChat}
+            />
+            <div className="m-sheet" style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="m-sheet-handle" />
+              <h3 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, fontFamily: 'Fredoka', fontSize: 15, fontWeight: 500, color: 'var(--fg)' }}>
+                Chat
+                <button
+                  onClick={closeChat}
+                  style={{ fontSize: 12, color: 'var(--dim)', padding: '4px 10px', borderRadius: 999, background: 'var(--bg-2)' }}
+                >
+                  Close
+                </button>
+              </h3>
+              <MobileChatBody
+                messages={state.chatLog ?? []}
+                myIndex={myIndex}
+                onSend={sendChat}
+              />
             </div>
           </>
         )}

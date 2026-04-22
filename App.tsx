@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import mqtt from 'mqtt';
-import { Card, GameState, Player, Suit } from './types';
+import { Card, ChatMessage, GameState, Player, Suit } from './types';
 import { sounds } from './utils/sound';
 import { flipTransition } from './utils/flip';
 import { loadSession, saveSession, clearSession, SavedSession } from './utils/session';
 import {
   ROYALS_ANIM_DURATION_MS, AI_BID_DELAY_MS, AI_TRUMP_DELAY_MS, AI_PLAY_DELAY_MS, TRICK_REVEAL_DELAY_MS,
-  EMPTY_SLOT_NAME,
+  EMPTY_SLOT_NAME, CHAT_MAX_LEN,
 } from './constants';
 import {
   NUM_PLAYERS, NUM_TRICKS,
@@ -55,6 +55,9 @@ export default function App() {
     return () => mq.removeEventListener('change', handler);
   }, []);
   const [mobileLogOpen, setMobileLogOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
+  const lastSeenChatLenRef = useRef(0);
 
   // Networking state
   const [isMultiplayer, setIsMultiplayer] = useState(false);
@@ -592,6 +595,58 @@ export default function App() {
     }
   };
 
+  // ── Chat notification sound (plays for messages from others, not our own) ──
+  const prevChatLenRef = useRef<number | null>(null);
+  useEffect(() => {
+    const len = state.chatLog?.length ?? 0;
+    if (prevChatLenRef.current === null) {
+      prevChatLenRef.current = len;
+      return;
+    }
+    if (len > prevChatLenRef.current) {
+      const latest = state.chatLog[len - 1];
+      if (latest && latest.playerIndex !== myIndex) sounds.chat();
+    }
+    prevChatLenRef.current = len;
+  }, [state.chatLog, myIndex]);
+
+  // ── Chat unread tracking. Bumps while chat is closed; resets on open. ──
+  useEffect(() => {
+    const len = state.chatLog?.length ?? 0;
+    const prev = lastSeenChatLenRef.current;
+    if (isMobile && mobileChatOpen) {
+      lastSeenChatLenRef.current = len;
+      return;
+    }
+    if (len > prev) {
+      setChatUnread(u => u + (len - prev));
+    }
+    lastSeenChatLenRef.current = len;
+  }, [state.chatLog, isMobile, mobileChatOpen]);
+
+  // ── Chat helpers ──
+  const markChatRead = () => {
+    lastSeenChatLenRef.current = state.chatLog?.length ?? 0;
+    setChatUnread(0);
+  };
+
+  const sendChat = (text: string) => {
+    if (!isMultiplayer) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const sender = state.players[myIndex];
+    if (!sender) return;
+    const msg: ChatMessage = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      playerIndex: myIndex,
+      name: sender.name,
+      team: sender.team,
+      text: trimmed.slice(0, CHAT_MAX_LEN),
+      ts: Date.now(),
+    };
+    handleDispatch({ type: 'SEND_CHAT', payload: msg });
+  };
+
   // ── Trump-reveal decision (for non-bidder humans who can't follow suit) ──
   // Show a one-off modal per (trick, player) asking whether to ask for a reveal.
   // Once they pick, the choice sticks for that turn even if state updates.
@@ -740,6 +795,8 @@ export default function App() {
     myIndex, isHost, isMultiplayer, peerId, joinId, isDisconnected,
     showMyCaptures, setShowMyCaptures,
     mobileLogOpen, setMobileLogOpen,
+    mobileChatOpen, setMobileChatOpen,
+    chatUnread, markChatRead, sendChat,
     visualThrow, mobileOpponentSource, sweepingToPlayer,
     revealPhase,
     legalCardIds,

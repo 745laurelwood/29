@@ -21,6 +21,11 @@ export interface GameContextValue {
   setShowMyCaptures: React.Dispatch<React.SetStateAction<boolean>>;
   mobileLogOpen: boolean;
   setMobileLogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  mobileChatOpen: boolean;
+  setMobileChatOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  chatUnread: number;
+  markChatRead: () => void;
+  sendChat: (text: string) => void;
 
   // Animation state
   visualThrow: { cardId: string; playerIndex: number } | null;

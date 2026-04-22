@@ -1,5 +1,5 @@
 import React from 'react';
-import { HUD, GameLog, LastMoveBanner, TrumpBadge } from '../components/panels';
+import { HUD, GameLog, LastMoveBanner, TrumpBadge, ChatRoom } from '../components/panels';
 import { FeltContent } from '../components/FeltContent';
 import { PlayerHand } from '../components/PlayerHand';
 import { SharedOverlays } from '../components/SharedOverlays';
@@ -12,11 +12,15 @@ export const DesktopView: React.FC = () => {
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,
     logEndRef,
     revealPhase,
+    chatUnread, markChatRead, sendChat,
   } = useGame();
 
   const royalsName = state.royalsDeclared
     ? state.players[state.royalsDeclared.playerIndex]?.name
     : undefined;
+
+  // Chat is only useful when there's another human in the room.
+  const chatEnabled = !!state.roomId && state.players.some(p => p.isHuman && p.id !== myIndex);
 
   return (
     <>
@@ -70,6 +74,23 @@ export const DesktopView: React.FC = () => {
           {bottomPlayer !== -1 && <PlayerHand playerIndex={bottomPlayer} position="bottom" />}
         </div>
       </div>
+      {chatEnabled && (
+        <div
+          className="fixed right-0 flex justify-end p-2 sm:p-3 pointer-events-none"
+          style={{ zIndex: Z_HUD, bottom: 'var(--safe-b)' }}
+        >
+          <div className="pointer-events-auto">
+            <ChatRoom
+              messages={state.chatLog ?? []}
+              myIndex={myIndex}
+              unread={chatUnread}
+              onOpen={markChatRead}
+              onClose={markChatRead}
+              onSend={sendChat}
+            />
+          </div>
+        </div>
+      )}
       <SharedOverlays />
     </>
   );

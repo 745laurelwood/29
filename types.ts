@@ -11,6 +11,15 @@ export interface Card {
   id: string;
 }
 
+export interface ChatMessage {
+  id: string;          // unique id: `${ts}-${random}`
+  playerIndex: number; // sender's player index at send time
+  name: string;        // snapshot of sender's name
+  team: 0 | 1;         // snapshot of sender's team, for tint
+  text: string;        // trimmed, <= CHAT_MAX_LEN chars
+  ts: number;          // Date.now() at send
+}
+
 export interface TrickPlay {
   playerIndex: number;
   card: Card;
@@ -87,6 +96,7 @@ export interface GameState {
   totalScores: { team0: number; team1: number }; // game points (cumulative, can be negative)
 
   gameLog: string[];
+  chatLog: ChatMessage[];
   readyForLobbyIndices?: number[];
 }
 
