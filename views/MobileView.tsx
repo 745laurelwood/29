@@ -275,39 +275,31 @@ export const MobileView: React.FC = () => {
             <div className="m-hs-divider" />
             <div className={`m-hs-cell ${total0 > total1 ? 'active lead' : ''}`}>
               <span className="label">Team A</span>
-              <span className="v">{total0}</span>
+              <span className="v">
+                {total0}
+                {state.gamePhase === 'PLAYING' && (
+                  <span style={{ fontWeight: 400, opacity: 0.7 }}> ({roundPts0})</span>
+                )}
+              </span>
             </div>
             <div className="m-hs-divider" />
             <div className={`m-hs-cell b ${total1 > total0 ? 'active lead' : ''}`}>
               <span className="label">Team B</span>
-              <span className="v">{total1}</span>
+              <span className="v">
+                {total1}
+                {state.gamePhase === 'PLAYING' && (
+                  <span style={{ fontWeight: 400, opacity: 0.7 }}> ({roundPts1})</span>
+                )}
+              </span>
             </div>
             <div className="m-hs-divider" />
-            <div className={`m-hs-cell ${total1 > total0 ? 'b' : ''} ${total0 !== total1 ? 'lead' : ''}`}>
-              <span className="label">{state.bidValue > 0 ? 'Bid' : 'Lead'}</span>
+            <div className={`m-hs-cell ${state.bidWinner >= 0 && state.players[state.bidWinner]?.team === 1 ? 'b' : ''} ${state.bidValue > 0 ? 'lead' : ''}`}>
+              <span className="label">Bid</span>
               <span className="v">
-                {state.bidValue > 0
-                  ? `${state.bidValue + state.bidAdjustment}`
-                  : total0 === total1 ? '-' : `${total0 > total1 ? 'A' : 'B'} +${Math.abs(total0 - total1)}`}
+                {state.bidValue > 0 ? `${state.bidValue + state.bidAdjustment}` : '-'}
               </span>
             </div>
           </div>
-          {state.gamePhase === 'PLAYING' && (
-            <div
-              style={{
-                marginTop: 4,
-                fontSize: 11,
-                letterSpacing: '0.06em',
-                textAlign: 'center',
-                color: 'var(--dim)',
-              }}
-            >
-              <span>Round</span>{' '}
-              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>A {roundPts0}</span>
-              <span> / </span>
-              <span style={{ color: 'var(--red)', fontWeight: 600 }}>B {roundPts1}</span>
-            </div>
-          )}
         </header>
 
         <section className="m-opps">

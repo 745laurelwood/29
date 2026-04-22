@@ -2,11 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage, GameState, Suit } from '../types';
 import {
   SUIT_SYMBOLS,
-  TEAM_LABELS,
   CHAT_MAX_LEN,
   Z_HUD, Z_ACTION_BAR, Z_OVERLAY, Z_MODAL,
 } from '../constants';
-import { MIN_BID, MAX_BID, SUIT_NAMES, ROYALS_ADJUSTMENT, getPointsForCard } from '../rules';
+import { MAX_BID, getPointsForCard } from '../rules';
 
 /** HUD panel — game-points, bid, trump, tricks. */
 export function HUD({
@@ -49,6 +48,9 @@ export function HUD({
             <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--accent)' }}>A</span>
             <span className="font-display text-sm sm:text-base leading-none tabular-nums" style={{ color: 'var(--accent)' }}>
               {total0}
+              {state.gamePhase === 'PLAYING' && (
+                <span style={{ fontWeight: 400, opacity: 0.75 }}> ({roundPts0})</span>
+              )}
             </span>
           </div>
           <div className="w-px my-1" style={{ background: 'var(--line)' }} />
@@ -56,16 +58,23 @@ export function HUD({
             <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--red)' }}>B</span>
             <span className="font-display text-sm sm:text-base leading-none tabular-nums" style={{ color: 'var(--red)' }}>
               {total1}
+              {state.gamePhase === 'PLAYING' && (
+                <span style={{ fontWeight: 400, opacity: 0.75 }}> ({roundPts1})</span>
+              )}
             </span>
           </div>
           <div className="w-px my-1" style={{ background: 'var(--line)' }} />
           <div className="flex flex-col items-center justify-center px-2.5 py-0.5 sm:px-6 sm:py-1 rounded-full">
-            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--dim)' }}>Lead</span>
+            <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--dim)' }}>Bid</span>
             <span
               className="font-display text-sm sm:text-base leading-none tabular-nums"
-              style={{ color: leadingTeam === 0 ? 'var(--accent)' : leadingTeam === 1 ? 'var(--red)' : 'var(--dim)' }}
+              style={{
+                color: bidder
+                  ? (bidder.team === 0 ? 'var(--accent)' : 'var(--red)')
+                  : 'var(--dim)',
+              }}
             >
-              {leadingTeam === null ? '-' : `${TEAM_LABELS[leadingTeam]} +${Math.abs(lead)}`}
+              {bidder ? `${state.bidValue + state.bidAdjustment}` : '-'}
             </span>
           </div>
         </div>
@@ -80,14 +89,6 @@ export function HUD({
               <span style={{ color: 'var(--accent)' }}>
                 {state.bidValue}{state.bidAdjustment !== 0 ? ` → ${state.bidValue + state.bidAdjustment}` : ''}
               </span>
-            </div>
-          )}
-          {state.gamePhase === 'PLAYING' && (
-            <div>
-              <span>Round</span>{' '}
-              <span style={{ color: 'var(--accent)' }}>A {roundPts0}</span>
-              <span> / </span>
-              <span style={{ color: 'var(--red)' }}>B {roundPts1}</span>
             </div>
           )}
           {isMultiplayer && roomId && (
@@ -263,7 +264,11 @@ export function BiddingControls({
   onPass: () => void;
   disabled?: boolean;
 }) {
-  const [amount, setAmount] = useState(Math.max(MIN_BID, minBidAmount));
+  // No default selection. A chip only becomes "selected" (blue) when the
+  // player explicitly taps it. When the minimum valid bid rises above the
+  // current selection (someone else just bid higher), or when the turn
+  // switches away (disabled flips true), the selection clears.
+  const [amount, setAmount] = useState<number | null>(null);
 
   const range = React.useMemo(() => {
     const arr: number[] = [];
@@ -272,10 +277,14 @@ export function BiddingControls({
   }, [minBidAmount]);
 
   React.useEffect(() => {
-    setAmount(prev => Math.max(minBidAmount, prev));
+    setAmount(prev => (prev != null && prev >= minBidAmount && prev <= MAX_BID ? prev : null));
   }, [minBidAmount]);
 
-  const canBid = !disabled && amount >= minBidAmount && amount <= MAX_BID;
+  React.useEffect(() => {
+    if (disabled) setAmount(null);
+  }, [disabled]);
+
+  const canBid = !disabled && amount != null && amount >= minBidAmount && amount <= MAX_BID;
 
   return (
     <div
@@ -338,10 +347,10 @@ export function BiddingControls({
 
       {/* Bid (gavel icon) */}
       <button
-        onClick={() => onBid(amount)}
+        onClick={() => { if (amount != null) onBid(amount); }}
         disabled={!canBid}
-        title={`Bid ${amount}`}
-        aria-label={`Bid ${amount}`}
+        title={amount != null ? `Bid ${amount}` : 'Select a number to bid'}
+        aria-label={amount != null ? `Bid ${amount}` : 'Bid'}
         className={`rounded-2xl flex items-center justify-center transition-all active:scale-[0.96] ${
           canBid ? 'hover:brightness-110' : 'cursor-not-allowed opacity-50'
         }`}

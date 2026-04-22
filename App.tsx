@@ -666,7 +666,6 @@ export default function App() {
     && !canFollow
     && !state.trumpRevealed
     && state.trumpSuit
-    && myIndex !== state.bidWinner
     && revealPromptDismissedKey !== currentTurnKey
   );
 
