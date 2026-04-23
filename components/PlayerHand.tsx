@@ -1,7 +1,7 @@
 import React from 'react';
 import { CardComponent } from './CardComponent';
 import { useGame } from '../GameContext';
-import { TEAM_BADGE_CLASSES, TEAM_LABELS } from '../constants';
+import { TEAM_BADGE_CLASSES, TEAM_LABELS, compareSuitForHand } from '../constants';
 import { compareCardStrength, NUM_PLAYERS } from '../rules';
 
 type Position = 'bottom' | 'left' | 'top' | 'right';
@@ -112,7 +112,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
         {(() => {
           const visibleHand = [...player.hand]
             .filter(c => !trickCardIds.has(c.id))
-            .sort((a, b) => a.suit === b.suit ? compareCardStrength(b, a) : a.suit.localeCompare(b.suit));
+            .sort((a, b) => a.suit === b.suit ? compareCardStrength(b, a) : compareSuitForHand(a.suit, b.suit));
           const showEmpty = visibleHand.length === 0
             && state.gamePhase !== 'GAME_OVER'
             && state.gamePhase !== 'ROUND_OVER'

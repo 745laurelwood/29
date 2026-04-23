@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '../types';
 import { SUIT_COLORS, SUIT_SYMBOLS, getRankLabel, Z_CARD_SELECTED } from '../constants';
+import { FaceArt } from './FaceArt';
 
 interface CardProps {
   card: Card;
@@ -84,8 +85,12 @@ export const CardComponent: React.FC<CardProps> = ({
       </div>
 
       {!small && (
-        <div className={`absolute inset-0 flex items-center justify-center text-2xl sm:text-3xl md:text-4xl ${colorClass} pointer-events-none`}>
-          {symbol}
+        <div className={`absolute inset-0 flex items-center justify-center ${colorClass} pointer-events-none`}>
+          {card.rank >= 11 ? (
+            <FaceArt rank={card.rank} className="h-[68%] w-auto" />
+          ) : (
+            <span className="text-2xl sm:text-3xl md:text-4xl">{symbol}</span>
+          )}
         </div>
       )}
 

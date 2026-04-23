@@ -2,7 +2,7 @@ import React from 'react';
 import { CardComponent } from './CardComponent';
 import { RoyalsOverlay } from './panels';
 import { useGame } from '../GameContext';
-import { SUIT_SYMBOLS } from '../constants';
+import { SUIT_SYMBOLS, compareSuitForHand } from '../constants';
 import { SUIT_NAMES } from '../rules';
 import { compareCardStrength } from '../rules';
 import { Suit } from '../types';
@@ -77,7 +77,7 @@ export const SharedOverlays: React.FC = () => {
               ) : (
                 <div className="flex flex-wrap gap-3 justify-center items-center">
                   {[...me.capturedCards]
-                    .sort((a, b) => a.suit === b.suit ? compareCardStrength(b, a) : a.suit.localeCompare(b.suit))
+                    .sort((a, b) => a.suit === b.suit ? compareCardStrength(b, a) : compareSuitForHand(a.suit, b.suit))
                     .map((card, i) => (
                       <div key={card.id} className="animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
                         <CardComponent card={card} flipId={`mycap-${card.id}`} />

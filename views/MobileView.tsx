@@ -7,7 +7,7 @@ import { SharedOverlays } from '../components/SharedOverlays';
 import { useGame } from '../GameContext';
 import { compareCardStrength, NUM_PLAYERS, getPointsForCard } from '../rules';
 import { Card, ChatMessage } from '../types';
-import { CHAT_MAX_LEN } from '../constants';
+import { CHAT_MAX_LEN, compareSuitForHand } from '../constants';
 
 const DRAG_THRESHOLD_PX = 6;
 
@@ -472,7 +472,7 @@ export const MobileView: React.FC = () => {
             <div className="m-hand no-scrollbar">
               {[...me.hand]
                 .filter(c => !trickCardIds.has(c.id))
-                .sort((a, b) => a.suit === b.suit ? compareCardStrength(b, a) : a.suit.localeCompare(b.suit))
+                .sort((a, b) => a.suit === b.suit ? compareCardStrength(b, a) : compareSuitForHand(a.suit, b.suit))
                 .map(card => {
                   const isLegal = legalCardIds.has(card.id);
                   const dimmed = state.gamePhase === 'PLAYING' && isMyPlayTurn && !isLegal;

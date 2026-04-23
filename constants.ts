@@ -29,6 +29,17 @@ export const SUIT_COLORS: Record<Suit, string> = {
   [Suit.Diamonds]: 'text-red-600',
 };
 
+// Left-to-right order used when displaying the player's hand, grouped by suit.
+export const HAND_SUIT_ORDER: Record<Suit, number> = {
+  [Suit.Spades]: 0,
+  [Suit.Diamonds]: 1,
+  [Suit.Clubs]: 2,
+  [Suit.Hearts]: 3,
+};
+
+export const compareSuitForHand = (a: Suit, b: Suit): number =>
+  HAND_SUIT_ORDER[a] - HAND_SUIT_ORDER[b];
+
 export const getRankLabel = (rank: number): string => CARD_RANK_LABELS[rank] ?? '?';
 
 // ============================================================
