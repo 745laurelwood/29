@@ -20,7 +20,7 @@ const KingArt: React.FC<{ className: string }> = ({ className }) => {
   const sw = 0.6;
   return (
     <svg viewBox="0 0 40 56" className={className} aria-hidden="true">
-      <g transform="translate(0 -5)">
+      <g transform="translate(2 -3) scale(0.88)">
         {/* Yellow jagged crown */}
         <path
           d="M11 19 L12 14 L14 16 L16 12 L18 15 L20 11 L22 15 L24 12 L26 16 L28 14 L29 19 Z"
@@ -59,7 +59,7 @@ const KingArt: React.FC<{ className: string }> = ({ className }) => {
         <path d="M17.5 28.5 Q20 27.7 22.5 28.5 Q20 29.4 17.5 28.5 Z" fill="#111" />
 
         {/* Doublet — suit color (drawn before beard so beard overlays the neckline) */}
-        <path d="M7 54 Q7 40 12 37 Q20 35.5 28 37 Q33 40 33 54 Q33 56 31 56 L9 56 Q7 56 7 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
+        <path d="M9 54 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 54 Q31 56 29 56 L11 56 Q9 56 9 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
 
         {/* Yellow vertical stripe */}
         <rect x="19" y="37.5" width="2" height="18.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
@@ -84,7 +84,7 @@ const QueenArt: React.FC<{ className: string }> = ({ className }) => {
   const sw = 0.6;
   return (
     <svg viewBox="0 0 40 56" className={className} aria-hidden="true">
-      <g transform="translate(2 1) scale(0.9)">
+      <g transform="translate(2 -3) scale(0.88)">
         {/* Hair fill — face+neck cutout, no stroke */}
         <path
           fillRule="evenodd"
@@ -124,7 +124,7 @@ const QueenArt: React.FC<{ className: string }> = ({ className }) => {
         <path d="M17.5 30 Q20 31.5 22.5 30 Q20 31 17.5 30 Z" fill="#c0392b" stroke={stroke} strokeWidth={0.3} />
 
         {/* Doublet — drawn last so it sits in front of the hair */}
-        <path d="M7 54 Q7 40 12 37 Q20 35.5 28 37 Q33 40 33 54 Q33 56 31 56 L9 56 Q7 56 7 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
+        <path d="M9 54 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 54 Q31 56 29 56 L11 56 Q9 56 9 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
 
         {/* Yellow vertical stripe */}
         <rect x="19" y="37.5" width="2" height="18.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
@@ -138,7 +138,7 @@ const JackArt: React.FC<{ className: string }> = ({ className }) => {
   const sw = 0.6;
   return (
     <svg viewBox="0 0 40 56" className={className} aria-hidden="true">
-      <g transform="translate(0 -5)">
+      <g transform="translate(2 -3) scale(0.88)">
       {/* Black hair — full head, parted slightly to one side, coming down sides */}
       <path
         d="M11 19 Q9 12 20 11 Q31 12 29 19 Q29.5 23 26.5 24 L26.5 20 Q24 18.5 20 18.5 Q17 18.5 16 19.5 L13.5 20 L13.5 24 Q10.5 23 11 19 Z"
@@ -174,7 +174,7 @@ const JackArt: React.FC<{ className: string }> = ({ className }) => {
       <rect x="18" y="33.5" width="4" height="3" fill="#2ea26b" stroke={stroke} strokeWidth={sw} />
 
       {/* Doublet / torso — inherits suit color (black or red) via currentColor */}
-      <path d="M7 54 Q7 40 12 37 Q20 35.5 28 37 Q33 40 33 54 Q33 56 31 56 L9 56 Q7 56 7 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
+      <path d="M9 54 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 54 Q31 56 29 56 L11 56 Q9 56 9 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
 
       {/* Yellow vertical stripe */}
       <rect x="19" y="37.5" width="2" height="18.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
