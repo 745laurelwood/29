@@ -84,7 +84,7 @@ const QueenArt: React.FC<{ className: string }> = ({ className }) => {
   const sw = 0.6;
   return (
     <svg viewBox="0 0 40 56" className={className} aria-hidden="true">
-      <g transform="translate(2 -3) scale(0.88)">
+      <g transform="translate(3.6 0.4) scale(0.82)">
         {/* Hair fill — face+neck cutout, no stroke */}
         <path
           fillRule="evenodd"
