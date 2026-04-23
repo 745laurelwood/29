@@ -61,13 +61,45 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
 
         <section className="mb-8">
           <h2 className="font-display text-xl sm:text-2xl mb-3" style={{ color: 'var(--fg)' }}>Card Points</h2>
-          <ul className="space-y-2" style={{ color: 'var(--fg-soft)' }}>
-            <li>Each Jack: <strong>3 points</strong></li>
-            <li>Each 9: <strong>2 points</strong></li>
-            <li>Each Ace and 10: <strong>1 point</strong></li>
-            <li>K, Q, 8, 7: <strong>0 points</strong></li>
-            <li>The winner of the last (8th) trick receives an <strong>additional 1 point</strong>.</li>
-          </ul>
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ border: '1px solid var(--line)', background: 'var(--bg-1)' }}
+          >
+            <table className="w-full text-sm sm:text-base" style={{ color: 'var(--fg-soft)' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-2)', color: 'var(--fg)' }}>
+                  <th className="text-left px-4 py-2 font-semibold">Card</th>
+                  <th className="text-right px-4 py-2 font-semibold">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="px-4 py-2">Jack</td>
+                  <td className="px-4 py-2 text-right font-semibold">3</td>
+                </tr>
+                <tr style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="px-4 py-2">9</td>
+                  <td className="px-4 py-2 text-right font-semibold">2</td>
+                </tr>
+                <tr style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="px-4 py-2">Ace</td>
+                  <td className="px-4 py-2 text-right font-semibold">1</td>
+                </tr>
+                <tr style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="px-4 py-2">10</td>
+                  <td className="px-4 py-2 text-right font-semibold">1</td>
+                </tr>
+                <tr style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="px-4 py-2">K, Q, 8, 7</td>
+                  <td className="px-4 py-2 text-right font-semibold">0</td>
+                </tr>
+                <tr style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="px-4 py-2">Last-trick bonus</td>
+                  <td className="px-4 py-2 text-right font-semibold">+1</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>Total per round: 29 points (28 from cards + 1 last-trick bonus).</p>
         </section>
 
