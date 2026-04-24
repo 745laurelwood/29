@@ -59,10 +59,10 @@ const KingArt: React.FC<{ className: string }> = ({ className }) => {
         <path d="M17.5 28.5 Q20 27.7 22.5 28.5 Q20 29.4 17.5 28.5 Z" fill="#111" />
 
         {/* Doublet — suit color (drawn before beard so beard overlays the neckline) */}
-        <path d="M9 54 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 54 Q31 56 29 56 L11 56 Q9 56 9 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
+        <path d="M9 42 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 42 Q31 44 29 44 L11 44 Q9 44 9 42 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
 
         {/* Yellow vertical stripe */}
-        <rect x="19" y="37.5" width="2" height="18.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
+        <rect x="19" y="37.5" width="2" height="6.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
 
         {/* Big black beard — straight top, sides hug the jawline, subtle teeth at bottom */}
         <path
@@ -124,10 +124,10 @@ const QueenArt: React.FC<{ className: string }> = ({ className }) => {
         <path d="M17.5 30 Q20 31.5 22.5 30 Q20 31 17.5 30 Z" fill="#c0392b" stroke={stroke} strokeWidth={0.3} />
 
         {/* Doublet — drawn last so it sits in front of the hair */}
-        <path d="M9 54 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 54 Q31 56 29 56 L11 56 Q9 56 9 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
+        <path d="M9 42 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 42 Q31 44 29 44 L11 44 Q9 44 9 42 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
 
         {/* Yellow vertical stripe */}
-        <rect x="19" y="37.5" width="2" height="18.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
+        <rect x="19" y="37.5" width="2" height="6.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
       </g>
     </svg>
   );
@@ -174,10 +174,10 @@ const JackArt: React.FC<{ className: string }> = ({ className }) => {
       <rect x="18" y="33.5" width="4" height="3" fill="#2ea26b" stroke={stroke} strokeWidth={sw} />
 
       {/* Doublet / torso — inherits suit color (black or red) via currentColor */}
-      <path d="M9 54 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 54 Q31 56 29 56 L11 56 Q9 56 9 54 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
+      <path d="M9 42 Q9 40 14 37 Q20 35.5 26 37 Q31 40 31 42 Q31 44 29 44 L11 44 Q9 44 9 42 Z" fill="currentColor" stroke={stroke} strokeWidth={sw} />
 
       {/* Yellow vertical stripe */}
-      <rect x="19" y="37.5" width="2" height="18.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
+      <rect x="19" y="37.5" width="2" height="6.5" fill="#f4c13a" stroke={stroke} strokeWidth={0.3} />
       </g>
     </svg>
   );
