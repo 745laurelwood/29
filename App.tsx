@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import mqtt from 'mqtt';
-import { Card, ChatMessage, GameState, Player, Suit } from './types';
+import { Card, ChatMessage, CompletedTrick, GameState, Player, Suit } from './types';
 import { sounds } from './utils/sound';
 import { flipTransition } from './utils/flip';
 import { loadSession, saveSession, clearSession, SavedSession } from './utils/session';
@@ -549,12 +549,24 @@ export default function App() {
       const ledSuit = state.ledSuit;
       const cannotFollow = ledSuit != null && !canFollowSuit(player.hand, ledSuit);
       if (cannotFollow && !state.trumpRevealed && state.trumpSuit) {
-        // Reveal trump before playing. The reveal-sequence effect takes over
-        // from here: it plays the trump toast, then (if any) the royals toast,
-        // then flips revealPhase back to 'idle' so AI can resume.
-        dispatch({ type: 'REVEAL_TRUMP', payload: { playerIndex: state.currentTurn } });
-        aiThinkingRef.current = false;
-        return;
+        // Skip the reveal if our partner is already winning the trick — keep
+        // trump hidden and slough an off-suit card instead. Trump isn't active
+        // yet, so the current winner is the highest led-suit card.
+        const ledPlays = state.currentTrick.filter(tp => tp.card.suit === ledSuit);
+        const winnerIdx = ledPlays.length > 0
+          ? ledPlays.reduce((b, p) => getTrickStrength(p.card.rank) > getTrickStrength(b.card.rank) ? p : b).playerIndex
+          : -1;
+        const partnerWinningPreReveal = winnerIdx >= 0
+          && state.players[winnerIdx]?.team === player.team
+          && winnerIdx !== state.currentTurn;
+        if (!partnerWinningPreReveal) {
+          // Reveal trump before playing. The reveal-sequence effect takes over
+          // from here: it plays the trump toast, then (if any) the royals toast,
+          // then flips revealPhase back to 'idle' so AI can resume.
+          dispatch({ type: 'REVEAL_TRUMP', payload: { playerIndex: state.currentTurn } });
+          aiThinkingRef.current = false;
+          return;
+        }
       }
 
       const botMustPlayTrump = state.trumpRevealed && state.revealerIndex === state.currentTurn;
@@ -570,6 +582,7 @@ export default function App() {
         state.currentTurn,
         state.bidWinner,
         state.highBidder,
+        state.completedTricks,
       );
       if (!chosen) { aiThinkingRef.current = false; return; }
 
@@ -868,6 +881,24 @@ function aiChooseTrump(hand: Card[]): Suit {
   return best;
 }
 
+/** True iff the J of `suit` has not yet appeared in any seen pile. */
+function isJackOutstanding(
+  suit: Suit,
+  myHand: Card[],
+  trickCards: Card[],
+  completedTricks: CompletedTrick[],
+): boolean {
+  const isJ = (c: Card) => c.suit === suit && c.rank === 11;
+  if (myHand.some(isJ)) return false;
+  if (trickCards.some(isJ)) return false;
+  for (const t of completedTricks) {
+    if (t.plays.some(p => isJ(p.card))) return false;
+  }
+  return true;
+}
+
+const sloughScore = (c: Card) => getPointsForCard(c) + getTrickStrength(c.rank) * 0.1;
+
 function aiChooseCard(
   hand: Card[],
   ledSuit: Suit | null,
@@ -878,58 +909,66 @@ function aiChooseCard(
   trickPlays: { playerIndex: number; card: Card }[],
   players: Player[],
   myIndex: number,
-  bidWinner: number,
+  _bidWinner: number,
   _highBidder: number,
+  completedTricks: CompletedTrick[] = [],
 ): Card | null {
   if (hand.length === 0) return null;
   const legal = getPlayableCards(hand, ledSuit, mustPlayTrump, trump);
   if (legal.length === 0) return hand[0];
 
   const myTeam = players[myIndex].team;
-  const bidderTeam = players[bidWinner]?.team;
 
-  // Leading: pick a strong card from our longest suit.
+  // Leading: pick the strongest card, but skip a 9 whose Jack is still in
+  // someone else's hand — leading it would likely feed 2 points to opponents.
   if (!ledSuit) {
-    // Prefer a high trump if we have many, else a high off-suit card.
     const sortedByStrength = [...legal].sort((a, b) => getTrickStrength(b.rank) - getTrickStrength(a.rank));
-    return sortedByStrength[0];
+    const safe = sortedByStrength.filter(c =>
+      !(c.rank === 9 && isJackOutstanding(c.suit, hand, trickCards, completedTricks))
+    );
+    return (safe.length > 0 ? safe : sortedByStrength)[0];
   }
 
-  // Following: compute current winner of trick-in-progress.
+  // Following: compute current trick winner (under current trump state).
   const trumpActive = trumpRevealed && trump != null;
-  const currentBestCard = trumpActive && trickCards.some(c => c.suit === trump)
-    ? trickCards.filter(c => c.suit === trump).reduce((best, c) => getTrickStrength(c.rank) > getTrickStrength(best.rank) ? c : best)
+  const trumpsInTrick = trumpActive && trump ? trickCards.filter(c => c.suit === trump) : [];
+  const currentBestCard = trumpsInTrick.length > 0
+    ? trumpsInTrick.reduce((best, c) => getTrickStrength(c.rank) > getTrickStrength(best.rank) ? c : best)
     : trickCards.filter(c => c.suit === ledSuit).reduce((best, c) => getTrickStrength(c.rank) > getTrickStrength(best.rank) ? c : best, trickCards[0]);
+
+  const leaderPlay = trickPlays[0];
+  const currentWinnerIndex = trumpsInTrick.length > 0
+    ? trickPlays.filter(tp => tp.card.suit === trump).reduce((best, tp) => getTrickStrength(tp.card.rank) > getTrickStrength(best.card.rank) ? tp : best).playerIndex
+    : trickPlays.filter(tp => tp.card.suit === ledSuit).reduce((best, tp) => getTrickStrength(tp.card.rank) > getTrickStrength(best.card.rank) ? tp : best, leaderPlay).playerIndex;
+  const partnerWinning = players[currentWinnerIndex]?.team === myTeam && currentWinnerIndex !== myIndex;
+
+  // Pick a slough card from a pool: lowest pts when partner can't win the
+  // trick, highest pts (feeding partner) when they're already winning.
+  const pickSlough = (pool: Card[]): Card => {
+    const sorted = [...pool].sort((a, b) => sloughScore(a) - sloughScore(b));
+    return partnerWinning ? sorted[sorted.length - 1] : sorted[0];
+  };
 
   const canFollow = hand.some(c => c.suit === ledSuit);
   if (canFollow) {
     const suitCards = legal.filter(c => c.suit === ledSuit);
-    // Try to win with smallest winning card.
     const mustBeatSuit = !trumpActive || !trickCards.some(c => c.suit === trump);
-    if (mustBeatSuit) {
+    // Only bother to win if partner isn't already winning this trick.
+    if (mustBeatSuit && !partnerWinning) {
       const winning = suitCards.filter(c => getTrickStrength(c.rank) > getTrickStrength(currentBestCard.rank));
       if (winning.length > 0) {
         winning.sort((a, b) => getTrickStrength(a.rank) - getTrickStrength(b.rank));
         return winning[0];
       }
     }
-    // Can't win — dump the lowest-value card in the led suit.
-    suitCards.sort((a, b) => (getPointsForCard(a) + getTrickStrength(a.rank) * 0.1) - (getPointsForCard(b) + getTrickStrength(b.rank) * 0.1));
-    return suitCards[0];
+    return pickSlough(suitCards);
   }
 
-  // Can't follow: option to ruff with trump, or slough off.
-  if (trumpActive && trump) {
+  // Can't follow. Consider trumping only if partner isn't already winning —
+  // otherwise dump points from another suit into partner's pile.
+  if (trumpActive && trump && !partnerWinning) {
     const trumps = legal.filter(c => c.suit === trump);
-    // If partner is currently winning, don't overtrump.
-    const leaderPlay = trickPlays[0];
-    const currentWinnerIndex = trumpActive && trickCards.some(c => c.suit === trump)
-      ? trickPlays.filter(tp => tp.card.suit === trump).reduce((best, tp) => getTrickStrength(tp.card.rank) > getTrickStrength(best.card.rank) ? tp : best).playerIndex
-      : trickPlays.filter(tp => tp.card.suit === ledSuit).reduce((best, tp) => getTrickStrength(tp.card.rank) > getTrickStrength(best.card.rank) ? tp : best, leaderPlay).playerIndex;
-    const partnerWinning = players[currentWinnerIndex]?.team === myTeam;
-
-    if (!partnerWinning && trumps.length > 0) {
-      // Overtrump with smallest that wins.
+    if (trumps.length > 0) {
       const currentBestTrump = trickCards.filter(c => c.suit === trump);
       const minStrength = currentBestTrump.length > 0
         ? Math.max(...currentBestTrump.map(c => getTrickStrength(c.rank)))
@@ -942,10 +981,11 @@ function aiChooseCard(
     }
   }
 
-  // Slough off the least-valuable card.
-  const sorted = [...legal].sort(
-    (a, b) => (getPointsForCard(a) + getTrickStrength(a.rank) * 0.1) - (getPointsForCard(b) + getTrickStrength(b.rank) * 0.1)
-  );
-  return sorted[0];
+  // Slough off-suit. Prefer non-trump cards so trumps stay available for
+  // tricks we actually want to win. If forced to dump a trump, always pick
+  // the weakest one — don't sacrifice high-strength trumps for partner.
+  const nonTrumpLegal = trump ? legal.filter(c => c.suit !== trump) : legal;
+  if (nonTrumpLegal.length > 0) return pickSlough(nonTrumpLegal);
+  return [...legal].sort((a, b) => sloughScore(a) - sloughScore(b))[0];
 }
 
