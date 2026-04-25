@@ -39,6 +39,18 @@ export const flipTransition = (commit: () => void, duration = DEFAULT_DURATION):
     }
     const sx = next.width > 0 ? prev.width / next.width : 1;
     const sy = next.height > 0 ? prev.height / next.height : 1;
+    // Lift moving cards above banners, action buttons, and other HUD chrome
+    // for the duration of the flight. Restored on finish or cancel.
+    const prevPosition = el.style.position;
+    const prevZIndex = el.style.zIndex;
+    if (window.getComputedStyle(el).position === 'static') {
+      el.style.position = 'relative';
+    }
+    el.style.zIndex = '10000';
+    const restore = () => {
+      el.style.position = prevPosition;
+      el.style.zIndex = prevZIndex;
+    };
     const anim = el.animate(
       [
         { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, transformOrigin: 'top left' },
@@ -46,6 +58,7 @@ export const flipTransition = (commit: () => void, duration = DEFAULT_DURATION):
       ],
       { duration, easing: EASING, fill: 'both' }
     );
+    anim.finished.then(restore, restore);
     animations.push(anim);
   });
 

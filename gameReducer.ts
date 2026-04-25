@@ -19,6 +19,7 @@ export type Action =
   | { type: 'INIT_LOBBY'; payload: { isHost: boolean; roomId?: string; hostName?: string } }
   | { type: 'UPDATE_PLAYERS'; payload: Player[] }
   | { type: 'SET_PLAYER_OFFLINE'; payload: { peerId: string } }
+  | { type: 'SET_PLAYER_TEAM'; payload: { playerIndex: number; team: 0 | 1 } }
   | { type: 'START_GAME'; payload: { playerName: string } }
   | { type: 'START_ROUND' }
   | { type: 'PLACE_BID'; payload: { playerIndex: number; amount: number } }
@@ -154,6 +155,16 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       return { ...state, players: np };
     }
 
+    case 'SET_PLAYER_TEAM': {
+      if (state.gamePhase !== 'LOBBY') return state;
+      const { playerIndex, team } = action.payload;
+      const target = state.players[playerIndex];
+      if (!target || target.team === team) return state;
+      const np = [...state.players];
+      np[playerIndex] = { ...target, team };
+      return { ...state, players: np };
+    }
+
     case 'START_ROUND': {
       const deck = shuffleDeck(createDeck());
       const isFromRoundOver = state.gamePhase === 'ROUND_OVER';
@@ -170,21 +181,47 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       }
       const firstBidder = nextClockwise(dealerIndex);
 
-      // Fill empty multiplayer slots with bots on first deal.
-      const emptySlotCount = state.gamePhase === 'LOBBY'
-        ? state.players.filter(p => p.name === EMPTY_SLOT_NAME).length
-        : 0;
-      const botNamePool = emptySlotCount > 0 ? pickBotNames(emptySlotCount) : [];
-      let botNameCursor = 0;
+      // First transition out of LOBBY — reseat humans so partners sit across
+      // (same team in even slots vs odd slots), then fill remaining seats with
+      // bots. The host (slot 0) anchors their team to the even slots so their
+      // own seat doesn't shift. Existing pre-named bots (single-player path)
+      // are reused; multiplayer empty slots draw fresh bot names.
+      let seated: Player[];
+      if (state.gamePhase === 'LOBBY') {
+        const hostTeam = state.players[0].team;
+        const oddTeam: 0 | 1 = (1 - hostTeam) as 0 | 1;
+        const evenHumans = state.players.filter(p => p.isHuman && p.team === hostTeam);
+        const oddHumans = state.players.filter(p => p.isHuman && p.team === oddTeam);
+        const slotted: (Player | null)[] = [
+          evenHumans[0] ?? null,
+          oddHumans[0] ?? null,
+          evenHumans[1] ?? null,
+          oddHumans[1] ?? null,
+        ];
+        const botsNeeded = slotted.filter(s => s === null).length;
+        const existingBots = state.players.filter(p => !p.isHuman && p.name !== EMPTY_SLOT_NAME);
+        const freshNeeded = Math.max(0, botsNeeded - existingBots.length);
+        const freshBotNames = freshNeeded > 0 ? pickBotNames(freshNeeded) : [];
+        const botPool: { name: string; existing?: Player }[] = [
+          ...existingBots.map(b => ({ name: b.name, existing: b })),
+          ...freshBotNames.map(n => ({ name: n })),
+        ];
+        let botCursor = 0;
+        seated = slotted.map((p, idx) => {
+          const slotTeam: 0 | 1 = (idx % 2 === 0 ? hostTeam : oddTeam) as 0 | 1;
+          if (p) return { ...p, id: idx, team: slotTeam };
+          const next = botPool[botCursor++];
+          const base = next.existing ?? makeEmptyPlayer(idx, next.name, false);
+          return { ...base, id: idx, team: slotTeam };
+        });
+      } else {
+        seated = state.players;
+      }
 
-      const players = state.players.map((p, idx) => {
-        const filledName = p.name === EMPTY_SLOT_NAME && botNameCursor < botNamePool.length
-          ? botNamePool[botNameCursor++]
-          : p.name;
+      const players = seated.map(p => {
         const newHand = deck.splice(0, HAND_SIZE_INITIAL);
         return {
           ...p,
-          name: filledName,
           hand: newHand,
           capturedCards: [],
           tricksWon: 0,

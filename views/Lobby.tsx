@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GameState } from '../types';
 import { SavedSession, clearSession } from '../utils/session';
-import { EMPTY_SLOT_NAME } from '../constants';
+import { EMPTY_SLOT_NAME, TEAM_LABELS, TEAM_TEXT_COLORS } from '../constants';
 import { Rulebook } from '../components/Rulebook';
 
 interface LobbyProps {
@@ -9,6 +9,7 @@ interface LobbyProps {
   isMultiplayer: boolean;
   isHost: boolean;
   peerId: string;
+  myIndex: number;
   playerName: string;
   setPlayerName: (n: string) => void;
   joinId: string;
@@ -19,7 +20,17 @@ interface LobbyProps {
   onJoinRoom: (resume?: Extract<SavedSession, { role: 'client' }>) => void;
   onStartSinglePlayer: () => void;
   onStartRound: () => void;
+  onSetTeam: (playerIndex: number, team: 0 | 1) => void;
 }
+
+const TEAM_PILL_BG: Record<0 | 1, string> = {
+  0: 'rgba(34, 211, 238, 0.18)',
+  1: 'rgba(244, 63, 94, 0.18)',
+};
+const TEAM_PILL_RING: Record<0 | 1, string> = {
+  0: 'rgba(34, 211, 238, 0.55)',
+  1: 'rgba(244, 63, 94, 0.55)',
+};
 
 const inputCls = "w-full rounded-xl px-4 py-3 text-center focus:outline-none font-display font-semibold text-lg sm:text-xl transition-all";
 const inputStyle: React.CSSProperties = {
@@ -29,11 +40,11 @@ const inputStyle: React.CSSProperties = {
 };
 
 export const Lobby: React.FC<LobbyProps> = ({
-  state, isMultiplayer, isHost, peerId,
+  state, isMultiplayer, isHost, peerId, myIndex,
   playerName, setPlayerName,
   joinId, setJoinId,
   savedSession, setSavedSession,
-  onCreateRoom, onJoinRoom, onStartSinglePlayer, onStartRound,
+  onCreateRoom, onJoinRoom, onStartSinglePlayer, onStartRound, onSetTeam,
 }) => {
   const [showRulebook, setShowRulebook] = useState(false);
   if (showRulebook) return <Rulebook onClose={() => setShowRulebook(false)} />;
@@ -148,13 +159,15 @@ export const Lobby: React.FC<LobbyProps> = ({
               </p>
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             {state.players.map((p, i) => {
               const isEmpty = p.name === EMPTY_SLOT_NAME;
+              const isMe = i === myIndex;
+              const showTeamPicker = !isEmpty && p.isHuman;
               return (
                 <div
                   key={i}
-                  className="p-3 rounded-xl flex items-center justify-between"
+                  className="p-3 rounded-xl flex items-center justify-between gap-2"
                   style={{ background: 'var(--bg-1)', border: '1px solid var(--line)' }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -167,31 +180,83 @@ export const Lobby: React.FC<LobbyProps> = ({
                     >
                       {i + 1}
                     </div>
-                    <span className="truncate text-sm" style={{ color: isEmpty ? 'var(--dim)' : 'var(--fg)', fontStyle: isEmpty ? 'italic' : 'normal' }}>
-                      {p.name}
-                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm" style={{ color: isEmpty ? 'var(--dim)' : 'var(--fg)', fontStyle: isEmpty ? 'italic' : 'normal' }}>
+                        {p.name}
+                        {isMe && !isEmpty && <span className="ml-1 text-[10px]" style={{ color: 'var(--dim)' }}>(you)</span>}
+                      </div>
+                      {!p.isHuman && !isEmpty && (
+                        <div className="text-[10px] mt-0.5" style={{ color: 'var(--accent)' }}>Bot</div>
+                      )}
+                    </div>
                   </div>
-                  {p.isHuman && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(127,215,169,0.15)', color: 'var(--good)' }}>
-                      Connected
-                    </span>
-                  )}
-                  {!p.isHuman && !isEmpty && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(111,176,255,0.12)', color: 'var(--accent)' }}>
-                      Bot
-                    </span>
+                  {showTeamPicker && (
+                    <div
+                      className="flex items-stretch p-0.5 rounded-full shrink-0"
+                      style={{ background: 'var(--bg-2)', border: '1px solid var(--line)' }}
+                    >
+                      {([0, 1] as const).map(t => {
+                        const active = p.team === t;
+                        const interactive = isMe;
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            disabled={!interactive || active}
+                            onClick={() => onSetTeam(i, t)}
+                            aria-pressed={active}
+                            title={interactive ? `Switch to Team ${TEAM_LABELS[t]}` : `Team ${TEAM_LABELS[t]}`}
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider transition-all ${active ? TEAM_TEXT_COLORS[t] : ''}`}
+                            style={{
+                              background: active ? TEAM_PILL_BG[t] : 'transparent',
+                              boxShadow: active ? `inset 0 0 0 1px ${TEAM_PILL_RING[t]}` : 'none',
+                              color: active ? undefined : 'var(--dim)',
+                              cursor: !interactive ? 'default' : (active ? 'default' : 'pointer'),
+                              opacity: !interactive && !active ? 0.55 : 1,
+                            }}
+                          >
+                            {TEAM_LABELS[t]}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
-          {isHost ? (
-            <button onClick={onStartRound} className="btn-accent w-full py-3.5 rounded-xl text-base sm:text-lg font-semibold">
-              Start Game
-            </button>
-          ) : (
-            <div className="text-center animate-pulse" style={{ color: 'var(--fg-soft)' }}>Waiting for host to start</div>
-          )}
+          {(() => {
+            const humanTeam0 = state.players.filter(p => p.isHuman && p.team === 0).length;
+            const humanTeam1 = state.players.filter(p => p.isHuman && p.team === 1).length;
+            const overflowTeam = humanTeam0 > 2 ? 0 : humanTeam1 > 2 ? 1 : null;
+            const teamsValid = overflowTeam === null;
+            return (
+              <>
+                {!teamsValid && (
+                  <p className="text-center text-xs mb-3" style={{ color: 'var(--red, #ff5a6e)' }}>
+                    Team {TEAM_LABELS[overflowTeam!]} has too many players (max 2). Have someone switch teams.
+                  </p>
+                )}
+                {isHost ? (
+                  <button
+                    onClick={onStartRound}
+                    disabled={!teamsValid}
+                    className={`w-full py-3.5 rounded-xl text-base sm:text-lg font-semibold transition-all ${teamsValid ? 'btn-accent' : ''}`}
+                    style={!teamsValid ? {
+                      background: 'var(--bg-1)',
+                      color: 'var(--dimmer)',
+                      border: '1px solid var(--line-soft)',
+                      cursor: 'not-allowed',
+                    } : undefined}
+                  >
+                    Start Game
+                  </button>
+                ) : (
+                  <div className="text-center animate-pulse" style={{ color: 'var(--fg-soft)' }}>Waiting for host to start</div>
+                )}
+              </>
+            );
+          })()}
           <button
             onClick={() => { clearSession(); window.location.reload(); }}
             className="mt-3 w-full py-2 text-sm transition-colors"
