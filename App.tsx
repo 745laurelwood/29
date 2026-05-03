@@ -188,13 +188,18 @@ export default function App() {
     return () => { window.clearTimeout(t); };
   }, [state.trumpRevealed]);
 
-  // Human declared royals from the prompt → advance to the toast phase.
+  // Royals decision arrived (declared or skipped) → advance the phase.
+  // Runs on every peer including non-holders, so all clients exit
+  // 'royals-prompt' once the holder broadcasts their choice.
   useEffect(() => {
     if (revealPhase !== 'royals-prompt') return;
-    if (!state.royalsDeclared) return;
-    sounds.royals();
-    setRevealPhase('royals-toast');
-  }, [state.royalsDeclared, revealPhase]);
+    if (state.royalsDeclared) {
+      sounds.royals();
+      setRevealPhase('royals-toast');
+    } else if (state.royalsResolved) {
+      setRevealPhase('idle');
+    }
+  }, [state.royalsDeclared, state.royalsResolved, revealPhase]);
 
   // Owns the royals-toast → idle timeout in its own effect so the cleanup
   // triggered by the very setState above doesn't cancel the timer.
@@ -672,6 +677,12 @@ export default function App() {
 
   const currentTurnKey = `${state.completedTricks.length}:${state.currentTurn}`;
   const [revealPromptDismissedKey, setRevealPromptDismissedKey] = useState<string | null>(null);
+  // Reset the dismissal cache when leaving PLAYING — completedTricks resets to []
+  // each round, so a key like "0:2" would otherwise carry over and silently
+  // suppress the prompt in the next round's first trick.
+  useEffect(() => {
+    if (state.gamePhase !== 'PLAYING') setRevealPromptDismissedKey(null);
+  }, [state.gamePhase]);
   const needRevealDecision = !!(
     isMyTurnRaw
     && state.ledSuit
@@ -759,7 +770,9 @@ export default function App() {
   };
 
   const executeDeclineRoyals = () => {
-    if (revealPhase === 'royals-prompt') setRevealPhase('idle');
+    if (revealPhase !== 'royals-prompt') return;
+    if (!canDeclareRoyals) return;
+    handleDispatch({ type: 'SKIP_ROYALS', payload: { playerIndex: myIndex } });
   };
 
   // Map player indices to visual positions

@@ -81,6 +81,7 @@ export interface GameState {
   revealerIndex: number;      // player who requested the reveal; cleared once they play a card (-1 when not applicable)
   bidAdjustment: number;      // adjustment applied to bidValue from royals
   royalsDeclared: { playerIndex: number; team: 0 | 1; adjustment: number } | null;
+  royalsResolved: boolean;    // true once the royals holder has declared or skipped (or no holder)
 
   // Current trick
   currentTrick: TrickPlay[];  // plays in the trick-in-progress

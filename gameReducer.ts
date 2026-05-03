@@ -29,6 +29,7 @@ export type Action =
   | { type: 'PLAY_CARD'; payload: { playerIndex: number; cardId: string } }
   | { type: 'REVEAL_TRUMP'; payload: { playerIndex: number } }
   | { type: 'DECLARE_ROYALS'; payload: { playerIndex: number } }
+  | { type: 'SKIP_ROYALS'; payload: { playerIndex: number } }
   | { type: 'COMPLETE_TRICK' }
   | { type: 'END_ROUND' }
   | { type: 'RETURN_TO_LOBBY'; payload: { playerIndex: number } }
@@ -60,6 +61,7 @@ export const INITIAL_STATE: GameState = {
   revealerIndex: -1,
   bidAdjustment: 0,
   royalsDeclared: null,
+  royalsResolved: false,
 
   currentTrick: [],
   trickLeader: 0,
@@ -252,6 +254,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         revealerIndex: -1,
         bidAdjustment: 0,
         royalsDeclared: null,
+        royalsResolved: false,
         currentTrick: [],
         trickLeader: 0,
         ledSuit: null,
@@ -498,11 +501,22 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         ...state,
         bidAdjustment: effectiveAdjustment,
         royalsDeclared: { playerIndex, team: declarerTeam, adjustment: effectiveAdjustment },
+        royalsResolved: true,
         gameLog: logPush(
           logPush(state.gameLog, `${player.name} declared Royals`),
           `Bid target is now ${state.bidValue + effectiveAdjustment}`,
         ),
       };
+    }
+
+    case 'SKIP_ROYALS': {
+      if (state.gamePhase !== 'PLAYING') return state;
+      if (!state.trumpSuit || !state.trumpRevealed) return state;
+      if (state.royalsResolved) return state;
+      const { playerIndex } = action.payload;
+      const player = state.players[playerIndex];
+      if (!player || !hasRoyals(player.hand, state.trumpSuit)) return state;
+      return { ...state, royalsResolved: true };
     }
 
     case 'COMPLETE_TRICK': {

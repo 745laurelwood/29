@@ -3,7 +3,7 @@ import { CardComponent } from './CardComponent';
 import { RoyalsOverlay } from './panels';
 import { useGame } from '../GameContext';
 import { SUIT_SYMBOLS, compareSuitForHand } from '../constants';
-import { SUIT_NAMES } from '../rules';
+import { SUIT_NAMES, hasRoyals } from '../rules';
 import { compareCardStrength } from '../rules';
 import { Suit } from '../types';
 
@@ -21,7 +21,11 @@ export const SharedOverlays: React.FC = () => {
   const me = state.players[myIndex];
 
   const showTrumpToast = revealPhase === 'trump-toast' && !!state.trumpSuit;
-  const royalsPromptReady = revealPhase === 'royals-prompt' && !!me && !!state.trumpSuit;
+  // Only the player who actually holds K+Q of trump should see the prompt —
+  // the reveal phase advances on every peer in lock-step, so without this
+  // check every client whose state contains a royals-holder would render it.
+  const iHoldRoyals = !!(me && state.trumpSuit && hasRoyals(me.hand, state.trumpSuit));
+  const royalsPromptReady = revealPhase === 'royals-prompt' && iHoldRoyals && !state.royalsResolved;
   const showRoyalsAnim = revealPhase === 'royals-toast' && !!state.royalsDeclared;
 
   // Delay the reveal-trump and royals prompts by 1s so the player can see the
