@@ -21,6 +21,7 @@ interface LobbyProps {
   onStartSinglePlayer: () => void;
   onStartRound: () => void;
   onSetTeam: (playerIndex: number, team: 0 | 1) => void;
+  onLeaveRoom: () => void;
 }
 
 const TEAM_PILL_BG: Record<0 | 1, string> = {
@@ -44,7 +45,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   playerName, setPlayerName,
   joinId, setJoinId,
   savedSession, setSavedSession,
-  onCreateRoom, onJoinRoom, onStartSinglePlayer, onStartRound, onSetTeam,
+  onCreateRoom, onJoinRoom, onStartSinglePlayer, onStartRound, onSetTeam, onLeaveRoom,
 }) => {
   const [showRulebook, setShowRulebook] = useState(false);
   if (showRulebook) return <Rulebook onClose={() => setShowRulebook(false)} />;
@@ -106,7 +107,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                 type="text"
                 placeholder="Room ID"
                 value={joinId}
-                onChange={e => setJoinId(e.target.value)}
+                onChange={e => setJoinId(e.target.value.toUpperCase())}
                 className="flex-1 rounded-xl px-4 py-3 text-center focus:outline-none font-semibold transition-all"
                 style={inputStyle}
               />
@@ -258,7 +259,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             );
           })()}
           <button
-            onClick={() => { clearSession(); window.location.reload(); }}
+            onClick={onLeaveRoom}
             className="mt-3 w-full py-2 text-sm transition-colors"
             style={{ color: 'var(--dim)' }}
           >

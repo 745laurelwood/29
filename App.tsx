@@ -157,6 +157,24 @@ export default function App() {
     saveSession({ role: 'host', roomId: state.roomId, playerName, state });
   }, [isMultiplayer, isHost, state, playerName]);
 
+  // Mirror host session persistence on the client side, but only once the
+  // game is actually under way. Saving in LOBBY would surface a stale
+  // resume hint after a player leaves a room before the round starts.
+  useEffect(() => {
+    if (!isMultiplayer || isHost || !state.roomId || !peerId) return;
+    if (state.gamePhase === 'LOBBY' || state.gamePhase === 'GAME_OVER') {
+      clearSession();
+      return;
+    }
+    const me = state.players.find(p => p.peerId === peerId);
+    saveSession({
+      role: 'client',
+      roomId: state.roomId,
+      playerName: me?.name || playerName,
+      myPeerId: peerId,
+    });
+  }, [isMultiplayer, isHost, state.roomId, state.gamePhase, state.players, peerId, playerName]);
+
   // ── Reveal sequence: trump toast → (royals prompt / royals toast) → idle ──
   const TRUMP_TOAST_MS = 2200;
   useEffect(() => {
@@ -256,6 +274,25 @@ export default function App() {
         dispatch(data.payload);
       } else if (data.type === 'PLAYER_OFFLINE') {
         dispatch({ type: 'SET_PLAYER_OFFLINE', payload: { peerId: data.payload.peerId } });
+      } else if (data.type === 'PLAYER_LEAVE') {
+        // Pre-game leave: vacate the slot entirely. Anything mid-round is
+        // treated as a transient disconnect via PLAYER_OFFLINE instead, so
+        // the in-flight game state stays intact.
+        if (s.gamePhase !== 'LOBBY') return;
+        const idx = s.players.findIndex(p => p.peerId === data.payload.peerId);
+        if (idx <= 0) return;
+        const np = [...s.players];
+        np[idx] = makeEmptyPlayer(idx, EMPTY_SLOT_NAME, false);
+        dispatch({ type: 'UPDATE_PLAYERS', payload: np });
+        try {
+          if (mqttClientRef.current && s.roomId) {
+            const snapshot = { ...s, players: np };
+            mqttClientRef.current.publish(
+              `nine_game_${s.roomId}`,
+              JSON.stringify({ type: 'SYNC_STATE', payload: snapshot })
+            );
+          }
+        } catch (e) { console.error('PLAYER_LEAVE rebroadcast error:', e); }
       }
     };
   }, []);
@@ -317,7 +354,12 @@ export default function App() {
           return;
         }
 
-        if (parsed.type === 'PLAYER_JOINED' || parsed.type === 'CLIENT_ACTION' || parsed.type === 'PLAYER_OFFLINE') {
+        if (
+          parsed.type === 'PLAYER_JOINED' ||
+          parsed.type === 'CLIENT_ACTION' ||
+          parsed.type === 'PLAYER_OFFLINE' ||
+          parsed.type === 'PLAYER_LEAVE'
+        ) {
           handleDataRef.current(parsed);
         }
       } catch(e) { console.error('Host JSON Parse Error:', e); }
@@ -330,7 +372,9 @@ export default function App() {
   };
 
   const joinGame = (resume?: Extract<SavedSession, { role: 'client' }>) => {
-    const roomId = resume?.roomId ?? joinId;
+    // Host-generated codes are uppercase; normalize so users typing lowercase
+    // still subscribe to the correct MQTT topic.
+    const roomId = (resume?.roomId ?? joinId).toUpperCase();
     const name = resume?.playerName ?? playerName;
     if (!roomId) return;
     if (resume && !joinId) setJoinId(roomId);
@@ -342,7 +386,9 @@ export default function App() {
     setPeerId(myPeerId);
 
     const displayName = name || `Player ${myPeerId.substring(0, 4)}`;
-    saveSession({ role: 'client', roomId, playerName: displayName, myPeerId });
+    // Don't persist the session yet — the lobby-save effect handles it once
+    // the host actually starts the round, so a leaver in lobby has nothing
+    // to resume on next visit.
     clientRejoinRef.current = { roomId, name: displayName, myPeerId };
 
     const client = mqtt.connect(MQTT_BROKER, {
@@ -789,6 +835,25 @@ export default function App() {
   const offlinePlayers = state.players.filter(p => p.isHuman && p.id !== 0 && !p.isOnline);
   const isPaused = (offlinePlayers.length > 0 && state.gamePhase !== 'LOBBY') || isDisconnected;
 
+  // Pre-game leave: tell the host to vacate our slot, then tear down locally.
+  // Hosts just clear their session — the room dies with their tab.
+  const onLeaveRoom = () => {
+    const finish = () => { clearSession(); window.location.reload(); };
+    if (isMultiplayer && !isHost && mqttClientRef.current && peerId) {
+      const room = state.roomId || joinId;
+      try {
+        mqttClientRef.current.publish(
+          `nine_game_${room}`,
+          JSON.stringify({ type: 'PLAYER_LEAVE', payload: { peerId } })
+        );
+      } catch (e) { console.error('PLAYER_LEAVE publish error:', e); }
+      // Give MQTT a beat to flush the packet before the page tears down.
+      setTimeout(finish, 200);
+      return;
+    }
+    finish();
+  };
+
   if (state.gamePhase === 'LOBBY') {
     return (
       <Lobby
@@ -813,6 +878,7 @@ export default function App() {
         }}
         onStartRound={() => dispatch({ type: 'START_ROUND' })}
         onSetTeam={(playerIndex, team) => handleDispatch({ type: 'SET_PLAYER_TEAM', payload: { playerIndex, team } })}
+        onLeaveRoom={onLeaveRoom}
       />
     );
   }
