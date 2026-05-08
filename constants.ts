@@ -32,9 +32,9 @@ export const SUIT_COLORS: Record<Suit, string> = {
 // Left-to-right order used when displaying the player's hand, grouped by suit.
 export const HAND_SUIT_ORDER: Record<Suit, number> = {
   [Suit.Spades]: 0,
-  [Suit.Diamonds]: 1,
+  [Suit.Hearts]: 1,
   [Suit.Clubs]: 2,
-  [Suit.Hearts]: 3,
+  [Suit.Diamonds]: 3,
 };
 
 export const compareSuitForHand = (a: Suit, b: Suit): number =>
