@@ -24,6 +24,7 @@ export type Action =
   | { type: 'START_ROUND' }
   | { type: 'PLACE_BID'; payload: { playerIndex: number; amount: number } }
   | { type: 'PASS_BID'; payload: { playerIndex: number } }
+  | { type: 'PASS_BID_DOUBLE'; payload: { playerIndex: number } }
   | { type: 'CHOOSE_TRUMP'; payload: { suit: Suit } }
   | { type: 'DEAL_REMAINING' }
   | { type: 'PLAY_CARD'; payload: { playerIndex: number; cardId: string } }
@@ -51,6 +52,7 @@ export const INITIAL_STATE: GameState = {
   pairActive: false,
   pairPriority: -1,
   pairChallenger: -1,
+  passDoubledBy: -1,
 
   bidWinner: -1,
   bidValue: 0,
@@ -245,6 +247,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         pairActive: false,
         pairPriority: -1,
         pairChallenger: -1,
+        passDoubledBy: -1,
         bidWinner: -1,
         bidValue: 0,
         trumpSuit: null,
@@ -389,6 +392,34 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         return finalizeAuction({ ...nextState, biddingTurn: nextState.highBidder });
       }
       return { ...nextState, biddingTurn: next };
+    }
+
+    case 'PASS_BID_DOUBLE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'BIDDING') return state;
+      if (state.biddingTurn !== playerIndex) return state;
+      if (state.passedPlayers.includes(playerIndex)) return state;
+      if (state.currentBid == null || state.highBidder < 0) return state;
+      const passer = state.players[playerIndex];
+      const bidder = state.players[state.highBidder];
+      if (!passer || !bidder) return state;
+      // Only an opposing-team player may pass-double.
+      if (passer.team === bidder.team) return state;
+
+      const newLastBids = [...state.lastBids];
+      newLastBids[playerIndex] = 'pass';
+      const log = logPush(
+        state.gameLog,
+        `${passer.name} passes & doubles — round game points x2`,
+      );
+      return finalizeAuction({
+        ...state,
+        passedPlayers: [...state.passedPlayers, playerIndex],
+        lastBids: newLastBids,
+        passDoubledBy: playerIndex,
+        biddingTurn: state.highBidder,
+        gameLog: log,
+      });
     }
 
     case 'CHOOSE_TRUMP': {
@@ -591,7 +622,19 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       const bidderTeamPoints = teamCardPoints[bidderTeam];
       const bidderWon = bidderTeamPoints >= target;
 
-      const gamePointDelta = bidderWon ? 1 : -1;
+      const teamTricksWon = [0, 1].map(team =>
+        state.players.filter(p => p.team === team).reduce((sum, p) => sum + p.tricksWon, 0),
+      );
+      const sweepTeam =
+        teamTricksWon[bidderTeam] === NUM_TRICKS
+          ? bidderTeam
+          : teamTricksWon[1 - bidderTeam] === NUM_TRICKS
+            ? 1 - bidderTeam
+            : -1;
+      const sweepMultiplier = sweepTeam >= 0 ? 2 : 1;
+      const passDoubleMultiplier = state.passDoubledBy >= 0 ? 2 : 1;
+
+      const gamePointDelta = (bidderWon ? 1 : -1) * sweepMultiplier * passDoubleMultiplier;
       const newTotalScores = {
         team0: state.totalScores.team0 + (bidderTeam === 0 ? gamePointDelta : 0),
         team1: state.totalScores.team1 + (bidderTeam === 1 ? gamePointDelta : 0),
@@ -609,6 +652,9 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       nextLog = logPush(nextLog, `Team A scored ${roundScores.team0}`);
       nextLog = logPush(nextLog, `Team B scored ${roundScores.team1}`);
       nextLog = logPush(nextLog, `${bidderName} ${bidderWon ? 'made the bid' : 'missed the bid'}`);
+      if (sweepTeam >= 0) {
+        nextLog = logPush(nextLog, `Team ${sweepTeam === 0 ? 'A' : 'B'} swept all 8 tricks (game points x2)`);
+      }
 
       return {
         ...state,

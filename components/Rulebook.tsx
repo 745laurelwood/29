@@ -125,6 +125,12 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
             winning bidder undertakes that their side will capture at least the bid number of points in
             the round.
           </p>
+          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
+            <strong>Pass &amp; double:</strong> a player on the team opposite the current high bidder may
+            instead choose to <em>pass-double</em>. This ends the auction immediately — even if other
+            players have not yet bid — and doubles the round's game-point change. The bidding side
+            scores <strong>+2</strong> if they make the bid, or <strong>-2</strong> if they miss it.
+          </p>
         </section>
 
         <section className="mb-8">
@@ -168,6 +174,14 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
             tricks (and the last-trick bonus). If the bidding side meets or exceeds their adjusted bid,
             they score <strong>+1 game point</strong>; otherwise, they score <strong>-1</strong>. The non-bidding side's score
             does not change.
+          </p>
+          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
+            <strong>Sweep bonus:</strong> if either side wins all eight tricks, the game-point change
+            is doubled. The bidding side scores <strong>+2</strong> if they sweep, or <strong>-2</strong> if the non-bidding side does.
+          </p>
+          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
+            The sweep bonus and the pass-double bonus stack: a sweep after a pass-double makes the
+            change <strong>+/-4</strong>.
           </p>
         </section>
 

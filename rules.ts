@@ -110,13 +110,13 @@ POINTS: J = 3, 9 = 2, A = 1, 10 = 1, K = Q = 8 = 7 = 0. Plus +1 to the winner of
 
 DEAL: 4 cards each. After bidding and trump selection, 4 more cards each.
 
-BIDDING: Each player in turn (starting next to dealer) may bid (${MIN_BID}–${MAX_BID}) or pass. Each bid must exceed the previous. A pass is permanent. If everyone passes, the dealer is forced to bid ${DEFAULT_DEALER_BID}. The highest bidder chooses the trump suit (secretly).
+BIDDING: Each player in turn (starting next to dealer) may bid (${MIN_BID}–${MAX_BID}) or pass. Each bid must exceed the previous. A pass is permanent. If everyone passes, the dealer is forced to bid ${DEFAULT_DEALER_BID}. The highest bidder chooses the trump suit (secretly). PASS-DOUBLE: a player on the opposing team to the current high bidder may instead pass-double — the auction ends immediately and the round's game-point change is doubled.
 
 PLAY: The bid winner leads the first trick. Players must follow suit if possible. If not, they may request the trump to be revealed (then play trump or any card), otherwise play any card. Once trump is revealed, highest trump wins the trick; else highest card of the led suit wins.
 
 ROYALS: If a player holds both K and Q of the trump suit at the moment trump is revealed, they may declare Royals. If they are on the bidder's team, the team's bid drops by ${ROYALS_ADJUSTMENT}; if on the opposing team, the bid rises by ${ROYALS_ADJUSTMENT}. Adjusted bid stays within [${MIN_BID}, ${MAX_BID}].
 
-SCORING: Count each side's card points (plus +1 to the last-trick winner). If the bidder side meets or exceeds their (adjusted) bid, they score +1 game point; otherwise -1. The non-bidding side is unchanged.
+SCORING: Count each side's card points (plus +1 to the last-trick winner). If the bidder side meets or exceeds their (adjusted) bid, they score +1 game point; otherwise -1. If either side wins all 8 tricks, the change is doubled. If a pass-double was used during bidding, the change is doubled. (Both stack: a sweep after a pass-double is +/-4.) The non-bidding side is unchanged.
 
 GAME WIN: First side to +${WINNING_GAME_POINTS} game points wins. (Or first side to -${WINNING_GAME_POINTS} loses.)
 `.trim();

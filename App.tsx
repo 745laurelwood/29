@@ -756,6 +756,16 @@ export default function App() {
   const minBidAmount = state.currentBid == null
     ? MIN_BID
     : (iAmReclaimer ? state.currentBid : state.currentBid + 1);
+  // Pass-double: only when there's already a bid from the opposing team and
+  // it's our turn. Doubles the round's game-point delta and ends bidding.
+  const canPassDouble = !!(
+    canBid &&
+    state.currentBid != null &&
+    state.highBidder >= 0 &&
+    me &&
+    state.players[state.highBidder] &&
+    me.team !== state.players[state.highBidder].team
+  );
 
   // ── Trump helpers ──
   const canChooseTrump = state.gamePhase === 'CHOOSING_TRUMP' && state.bidWinner === myIndex;
@@ -801,6 +811,11 @@ export default function App() {
   const executePass = () => {
     if (!canBid) return;
     handleDispatch({ type: 'PASS_BID', payload: { playerIndex: myIndex } });
+  };
+
+  const executePassDouble = () => {
+    if (!canPassDouble) return;
+    handleDispatch({ type: 'PASS_BID_DOUBLE', payload: { playerIndex: myIndex } });
   };
 
   const executeChooseTrump = (suit: Suit) => {
@@ -893,12 +908,12 @@ export default function App() {
     visualThrow, mobileOpponentSource, sweepingToPlayer,
     revealPhase,
     legalCardIds,
-    executePlayCard, executeBid, executePass,
+    executePlayCard, executeBid, executePass, executePassDouble,
     executeChooseTrump,
     executeDeclareRoyals, executeDeclineRoyals,
     executeRevealTrump, executeDeclineReveal,
     needRevealDecision,
-    canBid, minBidAmount,
+    canBid, canPassDouble, minBidAmount,
     canChooseTrump, canDeclareRoyals,
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,
     logEndRef,

@@ -15,7 +15,7 @@ export const FeltContent: React.FC = () => {
   const {
     state, myIndex, isHost, handleDispatch,
     canChooseTrump, executeChooseTrump,
-    canBid, minBidAmount, executeBid, executePass,
+    canBid, canPassDouble, minBidAmount, executeBid, executePass, executePassDouble,
     leftPlayer, rightPlayer, topPlayer, bottomPlayer,
   } = useGame();
 
@@ -97,6 +97,10 @@ export const FeltContent: React.FC = () => {
     const bidderTeam = bidder?.team ?? 0;
     const bidderPts = bidderTeam === 0 ? roundScores.team0 : roundScores.team1;
     const bidderMade = bidderPts >= target;
+    const teamTricks = [0, 1].map(team =>
+      state.players.filter(p => p.team === team).reduce((sum, p) => sum + p.tricksWon, 0),
+    );
+    const sweepTeam = teamTricks[0] === NUM_TRICKS ? 0 : teamTricks[1] === NUM_TRICKS ? 1 : -1;
     return (
       <div className="flex flex-col items-center gap-4 sm:gap-6 px-4 py-6 sm:py-8 max-w-xl w-full">
         <div className="text-center">
@@ -112,6 +116,16 @@ export const FeltContent: React.FC = () => {
           <div className="text-xs sm:text-sm mt-1" style={{ color: 'var(--fg-soft)' }}>
             Target {target}{bidAdjustment !== 0 ? ` (${bidValue}${bidAdjustment > 0 ? '+' : ''}${bidAdjustment})` : ''} · Scored {bidderPts}
           </div>
+          {sweepTeam >= 0 && (
+            <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--accent)' }}>
+              Team {TEAM_LABELS[sweepTeam]} swept all 8 tricks · Game points x2
+            </div>
+          )}
+          {state.passDoubledBy >= 0 && state.players[state.passDoubledBy] && (
+            <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--red)' }}>
+              {state.players[state.passDoubledBy].name} passed & doubled · Game points x2
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
           {([0, 1] as const).map(team => {
@@ -172,6 +186,8 @@ export const FeltContent: React.FC = () => {
             minBidAmount={minBidAmount}
             onBid={executeBid}
             onPass={executePass}
+            onPassDouble={executePassDouble}
+            canPassDouble={canPassDouble}
             disabled={!canBid}
           />
         </div>

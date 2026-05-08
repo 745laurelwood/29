@@ -70,6 +70,7 @@ export interface GameState {
   pairActive: boolean;         // true while an auction pair is in progress
   pairPriority: number;        // within an active pair, the original high-bidder (-1 if no pair); keeps match privilege throughout the pair
   pairChallenger: number;      // within an active pair, the player who opened the pair by raising (-1 if no pair); must always raise strictly
+  passDoubledBy: number;       // index of the opposing-team player who pass-doubled; -1 if none. Doubles the round's game-point delta and ends bidding immediately.
 
   // Contract
   bidWinner: number;          // -1 until bidding completes
