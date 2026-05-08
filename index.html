@@ -20,7 +20,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
     <style>
       /* ── Design tokens ─────────────────────────── */
       :root {
@@ -78,6 +78,15 @@
         font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
         font-weight: 500;
         letter-spacing: -0.005em;
+      }
+
+      /* JetBrains Mono has a clearly wider, rounder O than its slashed/dotted 0,
+         which avoids the O-vs-0 confusion in 4-char room codes. !important
+         beats the Tailwind CDN's font-mono utility, which gets injected at
+         runtime and would otherwise override this rule by source order. */
+      .font-mono {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+        font-feature-settings: 'zero' on;
       }
 
       /* ── Reusable classes ─────────────────────────── */
