@@ -13,7 +13,7 @@ import { clearSession } from '../utils/session';
 /** Felt contents — bidding / trump choice / current-trick cards. */
 export const FeltContent: React.FC = () => {
   const {
-    state, myIndex, isHost, handleDispatch,
+    state, myIndex, isHost, isSpectator, handleDispatch,
     canChooseTrump, executeChooseTrump,
     canBid, canPassDouble, minBidAmount, executeBid, executePass, executePassDouble,
     leftPlayer, rightPlayer, topPlayer, bottomPlayer,
@@ -178,7 +178,7 @@ export const FeltContent: React.FC = () => {
         </div>
         {current && (
           <div className="text-base sm:text-lg md:text-xl animate-pulse" style={{ color: 'var(--fg-soft)' }}>
-            {current.id === myIndex ? 'Your turn to bid' : `${current.name} is bidding...`}
+            {!isSpectator && current.id === myIndex ? 'Your turn to bid' : `${current.name} is bidding...`}
           </div>
         )}
         <div className="mt-2" style={{ width: 'min(92vw, 28rem)' }}>
@@ -295,7 +295,7 @@ export const FeltContent: React.FC = () => {
         <div className="text-xs sm:text-sm opacity-60" style={{ color: 'var(--fg-soft)' }}>
           Trick {state.completedTricks.length + 1} of {NUM_TRICKS}.{' '}
           {state.players[state.currentTurn]
-            ? (state.currentTurn === myIndex ? 'your lead' : `${state.players[state.currentTurn].name} leads`)
+            ? (!isSpectator && state.currentTurn === myIndex ? 'your lead' : `${state.players[state.currentTurn].name} leads`)
             : ''
           }
         </div>

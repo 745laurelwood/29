@@ -111,7 +111,7 @@ function MobileChatBody({ messages, myIndex, onSend }: {
 
 export const MobileView: React.FC = () => {
   const {
-    state, myIndex,
+    state, myIndex, isSpectator,
     topPlayer, rightPlayer, leftPlayer, bottomPlayer,
     setShowMyCaptures,
     mobileLogOpen, setMobileLogOpen,
@@ -122,7 +122,8 @@ export const MobileView: React.FC = () => {
     revealPhase,
   } = useGame();
 
-  const chatEnabled = !!state.roomId && state.players.some(p => p.isHuman && p.id !== myIndex);
+  // Spectators don't get chat, captures pop-overs, or any interactive surface.
+  const chatEnabled = !isSpectator && !!state.roomId && state.players.some(p => p.isHuman && p.id !== myIndex);
 
   // Pin .m-phone to window.innerHeight (the LAYOUT viewport). iOS shrinks the
   // VISUAL viewport when the keyboard opens — so 100dvh collapses and
@@ -162,14 +163,19 @@ export const MobileView: React.FC = () => {
     ? state.players[state.royalsDeclared.playerIndex]?.name
     : undefined;
 
-  const isMyBidTurn = state.gamePhase === 'BIDDING' && state.biddingTurn === myIndex;
-  const isMyPlayTurn = state.gamePhase === 'PLAYING'
+  const isMyBidTurn = !isSpectator && state.gamePhase === 'BIDDING' && state.biddingTurn === myIndex;
+  const isMyPlayTurn = !isSpectator
+    && state.gamePhase === 'PLAYING'
     && state.currentTurn === myIndex
     && state.currentTrick.length < NUM_PLAYERS
     && revealPhase === 'idle';
 
   const oppIndices = [leftPlayer, topPlayer, rightPlayer].filter(i => i !== -1);
-  const me = bottomPlayer !== -1 ? state.players[bottomPlayer] : null;
+  // Spectators have no "me" — they sit at no slot. We still show the bottom
+  // panel rendered as a regular player (host), but with no turn pulse, no
+  // captures click, and no drag-to-play.
+  const me = !isSpectator && bottomPlayer !== -1 ? state.players[bottomPlayer] : null;
+  const bottomPlayerForSpectator = isSpectator && bottomPlayer !== -1 ? state.players[bottomPlayer] : null;
 
   const total0 = state.totalScores.team0;
   const total1 = state.totalScores.team1;
@@ -371,6 +377,31 @@ export const MobileView: React.FC = () => {
           )}
         </div>
 
+        {bottomPlayerForSpectator && (
+          <div className="m-me-chip" style={{ position: 'relative' }}>
+            <div className="left">
+              <div className={`av ${bottomPlayerForSpectator.team === 1 ? 'b' : ''}`}>
+                {bottomPlayerForSpectator.name?.[0]?.toUpperCase() || '?'}
+              </div>
+              <div className="who">{bottomPlayerForSpectator.name}</div>
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: 'rgba(111,176,255,0.10)',
+                  color: 'var(--accent)',
+                  border: '1px solid var(--accent-soft)',
+                  fontWeight: 600,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Spectating
+              </span>
+            </div>
+          </div>
+        )}
         {me && (
           <div className="m-me-chip" style={{ position: 'relative' }}>
             {sweepingToPlayer === bottomPlayer && (() => {
@@ -469,7 +500,25 @@ export const MobileView: React.FC = () => {
           </div>
         )}
 
-        {me && (
+        {isSpectator ? (
+          <section className="m-hand-area" aria-label="Spectating">
+            <div
+              className="m-hand"
+              style={{
+                justifyContent: 'center',
+                alignItems: 'center',
+                color: 'var(--accent)',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                fontSize: 12,
+                fontWeight: 600,
+                opacity: 0.85,
+              }}
+            >
+              Spectating
+            </div>
+          </section>
+        ) : me && (
           <section className="m-hand-area">
             <div className="m-hand no-scrollbar">
               {[...me.hand]

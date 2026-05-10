@@ -12,6 +12,7 @@ export interface GameContextValue {
   myIndex: number;
   isHost: boolean;
   isMultiplayer: boolean;
+  isSpectator: boolean;
   peerId: string;
   joinId: string;
   isDisconnected: boolean;

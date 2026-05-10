@@ -45,6 +45,11 @@ export interface Player {
   team: 0 | 1;
 }
 
+export interface Spectator {
+  name: string;
+  peerId: string;
+}
+
 export type GamePhase =
   | 'LOBBY'
   | 'BIDDING'
@@ -100,6 +105,12 @@ export interface GameState {
   gameLog: string[];
   chatLog: ChatMessage[];
   readyForLobbyIndices?: number[];
+
+  // Spectators — anyone who arrived after the game was already in progress, or
+  // whose seat couldn't be filled. They never appear in `players` and never
+  // see any hand on the wire (the host publishes a redacted state to a
+  // separate spectator topic).
+  spectators: Spectator[];
 }
 
 // Network Types

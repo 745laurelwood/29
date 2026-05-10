@@ -13,7 +13,7 @@ interface PlayerHandProps {
 
 export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position }) => {
   const {
-    state, myIndex,
+    state, myIndex, isSpectator,
     setShowMyCaptures,
     legalCardIds,
     sweepingToPlayer,
@@ -23,7 +23,11 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
 
   if (!state.players[playerIndex]) return null;
   const player = state.players[playerIndex];
-  const isMe = playerIndex === myIndex;
+  // Spectators have no real seat — never treat any slot as "me" for them, so
+  // the bottom slot renders as a regular player and the "Your Turn" pulse,
+  // captures click-through, etc. all stay disabled.
+  const isMe = !isSpectator && playerIndex === myIndex;
+  const isMyBottomSpectatorSlot = isSpectator && position === 'bottom';
   const isCurrentTurn = state.currentTurn === playerIndex
     && state.gamePhase === 'PLAYING'
     && state.currentTrick.length < NUM_PLAYERS
@@ -110,6 +114,21 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
         </div>
 
         {(() => {
+          if (isMyBottomSpectatorSlot) {
+            return (
+              <div
+                className="px-3 py-2 rounded-lg uppercase tracking-[0.18em] text-xs font-semibold"
+                style={{
+                  border: '1px solid var(--accent-soft)',
+                  color: 'var(--accent)',
+                  background: 'rgba(111,176,255,0.06)',
+                  letterSpacing: '0.18em',
+                }}
+              >
+                Spectating
+              </div>
+            );
+          }
           const visibleHand = [...player.hand]
             .filter(c => !trickCardIds.has(c.id))
             .sort((a, b) => a.suit === b.suit ? compareCardStrength(b, a) : compareSuitForHand(a.suit, b.suit));

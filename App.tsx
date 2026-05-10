@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import mqtt from 'mqtt';
-import { Card, ChatMessage, CompletedTrick, GameState, Player, Suit } from './types';
+import { Card, ChatMessage, CompletedTrick, GameState, Player, Spectator, Suit } from './types';
 import { sounds } from './utils/sound';
 import { flipTransition } from './utils/flip';
 import { loadSession, saveSession, clearSession, SavedSession } from './utils/session';
@@ -68,6 +68,8 @@ export default function App() {
   const [myIndex, setMyIndex] = useState(0);
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [savedSession, setSavedSession] = useState<SavedSession | null>(() => loadSession());
+  const [isSpectator, setIsSpectator] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const mqttClientRef = useRef<mqtt.MqttClient | null>(null);
   const handleDataRef = useRef<(data: any) => void>(() => {});
   const stateRef = useRef(state);
@@ -227,72 +229,163 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [revealPhase]);
 
+  // Strip every hand and the trump-suit-before-reveal from the state. Used to
+  // build the redacted payload the host pushes to the spectator topic; ensures
+  // a watcher can't sniff anyone's cards off the wire.
+  const redactStateForSpectators = (s: GameState): GameState => ({
+    ...s,
+    players: s.players.map(p => ({ ...p, hand: [] })),
+    deck: [],
+    trumpSuit: s.trumpRevealed ? s.trumpSuit : null,
+    trumpChooser: s.trumpRevealed ? s.trumpChooser : -1,
+  });
+
+  // Action types that a (legitimate) seated client is allowed to dispatch
+  // remotely. Everything else (round/trick lifecycle, lobby admin, log) is
+  // host-only and silently dropped if it shows up over the wire.
+  const CLIENT_ALLOWED_ACTIONS = new Set<Action['type']>([
+    'PLACE_BID', 'PASS_BID', 'CHOOSE_TRUMP', 'DEAL_REMAINING', 'PLAY_CARD',
+    'REVEAL_TRUMP', 'DECLARE_ROYALS', 'SKIP_ROYALS', 'SET_PLAYER_TEAM', 'SEND_CHAT',
+    'RETURN_TO_LOBBY',
+  ]);
+
   // ── Broadcast state to clients ──
+  // Full state goes to the table topic (players); a redacted copy goes to the
+  // audience topic (spectators).
   useEffect(() => {
-    if (isHost && isMultiplayer && mqttClientRef.current) {
-      const payloadString = JSON.stringify({ type: 'SYNC_STATE', payload: state });
-      try { mqttClientRef.current.publish(`nine_game_${state.roomId}`, payloadString); } catch(e) { console.error('Host broadcast error:', e); }
-    }
+    if (!isHost || !isMultiplayer || !mqttClientRef.current || !state.roomId) return;
+    const client = mqttClientRef.current;
+    try {
+      client.publish(`nine_game_${state.roomId}`, JSON.stringify({ type: 'SYNC_STATE', payload: state }));
+      client.publish(`nine_game_${state.roomId}_spec`, JSON.stringify({ type: 'SYNC_STATE', payload: redactStateForSpectators(state) }));
+    } catch (e) { console.error('Host broadcast error:', e); }
   }, [state, isHost, isMultiplayer]);
 
   useEffect(() => {
     handleDataRef.current = (data: any) => {
       const s = stateRef.current;
+      const room = s.roomId;
+      if (!room) return;
+      const client = mqttClientRef.current;
+      const publishMain = (msg: any) => {
+        if (!client) return;
+        try { client.publish(`nine_game_${room}`, JSON.stringify(msg)); } catch (e) { console.error('publishMain error:', e); }
+      };
+      const publishSpec = (msg: any) => {
+        if (!client) return;
+        try { client.publish(`nine_game_${room}_spec`, JSON.stringify(msg)); } catch (e) { console.error('publishSpec error:', e); }
+      };
+      const rebroadcast = (players: Player[], spectators: Spectator[]) => {
+        const snapshot = { ...s, players, spectators };
+        publishMain({ type: 'SYNC_STATE', payload: snapshot });
+        publishSpec({ type: 'SYNC_STATE', payload: redactStateForSpectators(snapshot) });
+      };
+
       if (data.type === 'PLAYER_JOINED') {
-        const newPlayers = [...s.players];
-        const rebroadcast = (players: typeof newPlayers) => {
-          try {
-            if (mqttClientRef.current && s.roomId) {
-              const snapshot = { ...s, players };
-              mqttClientRef.current.publish(
-                `nine_game_${s.roomId}`,
-                JSON.stringify({ type: 'SYNC_STATE', payload: snapshot })
-              );
-            }
-          } catch (e) { console.error('PLAYER_JOINED rebroadcast error:', e); }
-        };
+        const { name, peerId } = data.payload;
+        if (!name || !peerId) return;
+        const specs = s.spectators ?? [];
 
-        const existingPlayerIdx = newPlayers.findIndex(p => p.name === data.payload.name && p.isHuman);
-        if (existingPlayerIdx !== -1) {
-          newPlayers[existingPlayerIdx] = { ...newPlayers[existingPlayerIdx], peerId: data.payload.peerId, isOnline: true };
-          dispatch({ type: 'UPDATE_PLAYERS', payload: newPlayers });
-          rebroadcast(newPlayers);
+        // 1. Reconnection by peerId — same identity returning. Honoured at any
+        //    phase, regardless of name (so renames during an active session
+        //    don't lock a player out).
+        const reconPlayerIdx = s.players.findIndex(p => p.peerId === peerId && p.isHuman);
+        if (reconPlayerIdx !== -1) {
+          const np = [...s.players];
+          np[reconPlayerIdx] = { ...np[reconPlayerIdx], isOnline: true };
+          dispatch({ type: 'UPDATE_PLAYERS', payload: np });
+          publishMain({ type: 'JOIN_ACCEPTED', peerId, role: 'player', playerIndex: reconPlayerIdx });
+          rebroadcast(np, specs);
+          return;
+        }
+        if (specs.some(sp => sp.peerId === peerId)) {
+          publishMain({ type: 'JOIN_ACCEPTED', peerId, role: 'spectator' });
+          rebroadcast(s.players, specs);
           return;
         }
 
-        if (s.gamePhase !== 'LOBBY') {
-          rebroadcast(newPlayers);
+        // 2. Name uniqueness — covers both seated humans and spectators.
+        const nameTaken =
+          s.players.some(p => p.isHuman && p.name === name)
+          || specs.some(sp => sp.name === name);
+        if (nameTaken) {
+          publishMain({ type: 'JOIN_REJECTED', peerId, reason: 'NAME_TAKEN' });
           return;
         }
-        const slot = newPlayers.findIndex((p, i) => i !== 0 && p.name === EMPTY_SLOT_NAME);
-        if (slot !== -1) {
-          newPlayers[slot] = { ...newPlayers[slot], name: data.payload.name, isHuman: true, peerId: data.payload.peerId };
-          dispatch({ type: 'UPDATE_PLAYERS', payload: newPlayers });
-          rebroadcast(newPlayers);
+
+        // 3. Lobby with an empty slot → seat as player.
+        if (s.gamePhase === 'LOBBY') {
+          const slot = s.players.findIndex((p, i) => i !== 0 && p.name === EMPTY_SLOT_NAME);
+          if (slot !== -1) {
+            const np = [...s.players];
+            np[slot] = { ...np[slot], name, isHuman: true, peerId, isOnline: true };
+            dispatch({ type: 'UPDATE_PLAYERS', payload: np });
+            publishMain({ type: 'JOIN_ACCEPTED', peerId, role: 'player', playerIndex: slot });
+            rebroadcast(np, specs);
+            return;
+          }
+          publishMain({ type: 'JOIN_REJECTED', peerId, reason: 'LOBBY_FULL' });
+          return;
         }
-      } else if (data.type === 'CLIENT_ACTION') {
-        dispatch(data.payload);
-      } else if (data.type === 'PLAYER_OFFLINE') {
-        dispatch({ type: 'SET_PLAYER_OFFLINE', payload: { peerId: data.payload.peerId } });
-      } else if (data.type === 'PLAYER_LEAVE') {
-        // Pre-game leave: vacate the slot entirely. Anything mid-round is
-        // treated as a transient disconnect via PLAYER_OFFLINE instead, so
-        // the in-flight game state stays intact.
+
+        // 4. Game in progress, room full / no rejoin path → spectator.
+        const newSpec: Spectator = { name, peerId };
+        const nextSpecs = [...specs, newSpec];
+        dispatch({ type: 'ADD_SPECTATOR', payload: newSpec });
+        publishMain({ type: 'JOIN_ACCEPTED', peerId, role: 'spectator' });
+        rebroadcast(s.players, nextSpecs);
+        // The spectator subscribes to _spec asynchronously after receiving
+        // JOIN_ACCEPTED — re-push the redacted state shortly after so they
+        // don't sit on a blank screen waiting for the next gameplay event.
+        setTimeout(() => {
+          const cur = stateRef.current;
+          publishSpec({ type: 'SYNC_STATE', payload: redactStateForSpectators(cur) });
+        }, 400);
+        return;
+      }
+
+      if (data.type === 'CLIENT_ACTION') {
+        const { payload: action, originatorPeerId } = data;
+        if (!originatorPeerId || !action || typeof action.type !== 'string') return;
+        const sender = s.players.find(p => p.peerId === originatorPeerId && p.isHuman);
+        if (!sender) return;                             // unseated peer (spectator/stranger)
+        if (!CLIENT_ALLOWED_ACTIONS.has(action.type)) return;
+        const declaredIdx = action?.payload?.playerIndex;
+        if (typeof declaredIdx === 'number' && declaredIdx !== sender.id) return;
+        dispatch(action);
+        return;
+      }
+
+      if (data.type === 'PLAYER_OFFLINE') {
+        const { peerId } = data.payload;
+        const specs = s.spectators ?? [];
+        if (specs.some(sp => sp.peerId === peerId)) {
+          dispatch({ type: 'REMOVE_SPECTATOR', payload: { peerId } });
+          rebroadcast(s.players, specs.filter(sp => sp.peerId !== peerId));
+          return;
+        }
+        dispatch({ type: 'SET_PLAYER_OFFLINE', payload: { peerId } });
+        return;
+      }
+
+      if (data.type === 'PLAYER_LEAVE') {
+        const { peerId } = data.payload;
+        const specs = s.spectators ?? [];
+        // Spectator leaving — drop them at any phase.
+        if (specs.some(sp => sp.peerId === peerId)) {
+          dispatch({ type: 'REMOVE_SPECTATOR', payload: { peerId } });
+          rebroadcast(s.players, specs.filter(sp => sp.peerId !== peerId));
+          return;
+        }
+        // Pre-game player leave: vacate the slot. Mid-round leave is treated
+        // as a transient disconnect (PLAYER_OFFLINE) so state stays intact.
         if (s.gamePhase !== 'LOBBY') return;
-        const idx = s.players.findIndex(p => p.peerId === data.payload.peerId);
+        const idx = s.players.findIndex(p => p.peerId === peerId);
         if (idx <= 0) return;
         const np = [...s.players];
         np[idx] = makeEmptyPlayer(idx, EMPTY_SLOT_NAME, false);
         dispatch({ type: 'UPDATE_PLAYERS', payload: np });
-        try {
-          if (mqttClientRef.current && s.roomId) {
-            const snapshot = { ...s, players: np };
-            mqttClientRef.current.publish(
-              `nine_game_${s.roomId}`,
-              JSON.stringify({ type: 'SYNC_STATE', payload: snapshot })
-            );
-          }
-        } catch (e) { console.error('PLAYER_LEAVE rebroadcast error:', e); }
+        rebroadcast(np, specs);
       }
     };
   }, []);
@@ -315,7 +408,9 @@ export default function App() {
 
     client.on('connect', () => {
       setIsDisconnected(false);
-      client.subscribe(`nine_game_${roomId}`, (err) => {
+      // Subscribe to BOTH the table topic (players) and the spectator topic
+      // (so spectators can publish PLAYER_LEAVE/PLAYER_OFFLINE there too).
+      client.subscribe([`nine_game_${roomId}`, `nine_game_${roomId}_spec`], (err) => {
         if (err) { console.error('HOST subscribe error:', err); return; }
         if (!hostInitializedRef.current) {
           hostInitializedRef.current = true;
@@ -337,6 +432,7 @@ export default function App() {
           try {
             const snapshot = stateRef.current;
             client.publish(`nine_game_${roomId}`, JSON.stringify({ type: 'SYNC_STATE', payload: snapshot }));
+            client.publish(`nine_game_${roomId}_spec`, JSON.stringify({ type: 'SYNC_STATE', payload: redactStateForSpectators(snapshot) }));
           } catch (e) { console.error('HOST rebroadcast error:', e); }
         }
       });
@@ -347,9 +443,18 @@ export default function App() {
         const raw = message.toString();
         const parsed = JSON.parse(raw);
         if (parsed.type === 'SYNC_STATE') return;
+        // Skip our own JOIN_ACCEPTED/REJECTED echoes — we publish those, the
+        // joining client consumes them.
+        if (parsed.type === 'JOIN_ACCEPTED' || parsed.type === 'JOIN_REJECTED') return;
         if (parsed.type === 'MOVE_ANNOUNCE' && parsed.originatorPeerId === roomId) return;
 
         if (parsed.type === 'MOVE_ANNOUNCE') {
+          // Validate the originator actually owns the slot they claim.
+          const claimedIdx = parsed.payload?.playerIndex;
+          const seated = stateRef.current.players[claimedIdx];
+          if (!seated || seated.peerId !== parsed.originatorPeerId) return;
+          // Forward to the spectator topic so watchers see the play animation.
+          try { mqttClientRef.current?.publish(`nine_game_${roomId}_spec`, raw); } catch (e) { console.error('MOVE_ANNOUNCE spec forward error:', e); }
           executeOrchestratedPlay(parsed.payload);
           return;
         }
@@ -381,6 +486,8 @@ export default function App() {
     setIsMultiplayer(true);
     setIsHost(false);
     setIsDisconnected(false);
+    setIsSpectator(false);
+    setJoinError(null);
 
     const myPeerId = resume?.myPeerId ?? Math.random().toString(36).substring(2, 9);
     setPeerId(myPeerId);
@@ -393,6 +500,9 @@ export default function App() {
 
     const client = mqtt.connect(MQTT_BROKER, {
       will: {
+        // Will is set on the table topic by default. Host subscribes to both,
+        // and the role-aware PLAYER_OFFLINE handler sorts spectators vs.
+        // players by peerId, so a single will-topic suffices.
         topic: `nine_game_${roomId}`,
         payload: JSON.stringify({ type: 'PLAYER_OFFLINE', payload: { peerId: myPeerId } }),
         qos: 0,
@@ -400,6 +510,11 @@ export default function App() {
       }
     });
     mqttClientRef.current = client;
+
+    // Tracks the role the host assigns us. Until the handshake completes we
+    // ignore any state messages — that's the fix for the rendering hole where
+    // an unconfirmed peer would render as the default `myIndex = 0` (host).
+    let confirmedRole: 'player' | 'spectator' | null = null;
 
     client.on('connect', () => {
       setIsDisconnected(false);
@@ -413,17 +528,62 @@ export default function App() {
     client.on('message', (topic, message) => {
       try {
         const data = JSON.parse(message.toString());
+
+        if (data.type === 'JOIN_REJECTED' && data.peerId === myPeerId) {
+          const reason = data.reason === 'NAME_TAKEN'
+            ? `A player with that name already exists in this room.`
+            : data.reason === 'LOBBY_FULL'
+              ? `This room is full.`
+              : `Unable to join this room.`;
+          setJoinError(reason);
+          clearSession();
+          clientRejoinRef.current = null;
+          mqttClientRef.current = null;
+          setIsMultiplayer(false);
+          setIsHost(false);
+          setIsSpectator(false);
+          try { client.end(true); } catch {}
+          return;
+        }
+
+        if (data.type === 'JOIN_ACCEPTED' && data.peerId === myPeerId) {
+          confirmedRole = data.role;
+          if (data.role === 'spectator') {
+            setIsSpectator(true);
+            // Switch from the table topic to the audience topic so we never
+            // see the full state on the wire.
+            client.unsubscribe(`nine_game_${roomId}`);
+            client.subscribe(`nine_game_${roomId}_spec`, (err) => {
+              if (err) console.error('CLIENT spec subscribe error:', err);
+            });
+          } else if (typeof data.playerIndex === 'number') {
+            setMyIndex(data.playerIndex);
+          }
+          return;
+        }
+
+        // Pre-handshake messages must not be applied — closing the rendering
+        // hole at the source.
+        if (!confirmedRole) return;
+
         if (data.type === 'SYNC_STATE') {
           const newState = data.payload as GameState;
           if (isOrchestratingRef.current) {
             pendingSyncStateRef.current = newState;
             return;
           }
-          const me = newState.players.find(p => p.peerId === myPeerId);
-          if (me) setMyIndex(me.id);
+          if (confirmedRole === 'player') {
+            const me = newState.players.find(p => p.peerId === myPeerId);
+            if (!me) return;        // host hasn't seated us yet — wait for next sync
+            setMyIndex(me.id);
+          }
           dispatch({ type: 'SET_GAME_STATE', payload: newState });
         } else if (data.type === 'MOVE_ANNOUNCE') {
           if (data.originatorPeerId === myPeerId) return;
+          // Verify the originator owns the slot they claim to play from.
+          const claimedIdx = data.payload?.playerIndex;
+          const seated = stateRef.current.players[claimedIdx];
+          if (!seated || seated.peerId !== data.originatorPeerId) return;
           executeOrchestratedPlay(data.payload);
         }
       } catch(e) { console.error('Client JSON Parse Error:', e); }
@@ -651,11 +811,19 @@ export default function App() {
       dispatch(action);
       return;
     }
+    // Spectators have no action surface — block defensively in case any UI
+    // path slips through.
+    if (isSpectator) return;
     if (action.type !== 'START_ROUND') {
       dispatch(action);
     }
     if (mqttClientRef.current) {
-      mqttClientRef.current.publish(`nine_game_${state.roomId || joinId}`, JSON.stringify({ type: 'CLIENT_ACTION', payload: action }));
+      // Sign every CLIENT_ACTION with our peerId so the host can verify the
+      // sender actually owns the slot they're acting from.
+      mqttClientRef.current.publish(
+        `nine_game_${state.roomId || joinId}`,
+        JSON.stringify({ type: 'CLIENT_ACTION', payload: action, originatorPeerId: peerIdRef.current })
+      );
     }
   };
 
@@ -714,9 +882,12 @@ export default function App() {
   // ── Trump-reveal decision (for non-bidder humans who can't follow suit) ──
   // Show a one-off modal per (trick, player) asking whether to ask for a reveal.
   // Once they pick, the choice sticks for that turn even if state updates.
-  const me = state.players[myIndex];
+  // Spectators never have a "me" — even if myIndex defaults to 0, none of the
+  // turn/legality/eligibility checks below should ever return true for them.
+  const me = isSpectator ? undefined : state.players[myIndex];
   const canFollow = me && state.ledSuit ? canFollowSuit(me.hand, state.ledSuit) : true;
-  const isMyTurnRaw = state.currentTurn === myIndex
+  const isMyTurnRaw = !isSpectator
+    && state.currentTurn === myIndex
     && state.gamePhase === 'PLAYING'
     && state.currentTrick.length < NUM_PLAYERS
     && revealPhase === 'idle';
@@ -749,7 +920,7 @@ export default function App() {
   }
 
   // ── Bidding helpers ──
-  const canBid = state.gamePhase === 'BIDDING' && state.biddingTurn === myIndex;
+  const canBid = !isSpectator && state.gamePhase === 'BIDDING' && state.biddingTurn === myIndex;
   // Reclaimers (the player just outbid) may match the current bid; everyone
   // else must strictly raise.
   const iAmReclaimer = state.pairActive && state.pairPriority === myIndex;
@@ -768,10 +939,11 @@ export default function App() {
   );
 
   // ── Trump helpers ──
-  const canChooseTrump = state.gamePhase === 'CHOOSING_TRUMP' && state.bidWinner === myIndex;
+  const canChooseTrump = !isSpectator && state.gamePhase === 'CHOOSING_TRUMP' && state.bidWinner === myIndex;
 
   // ── Royals (human) ──
   const canDeclareRoyals = !!(
+    !isSpectator &&
     state.gamePhase === 'PLAYING' &&
     state.trumpRevealed &&
     state.trumpSuit &&
@@ -883,6 +1055,8 @@ export default function App() {
         setJoinId={setJoinId}
         savedSession={savedSession}
         setSavedSession={setSavedSession}
+        joinError={joinError}
+        clearJoinError={() => setJoinError(null)}
         onCreateRoom={initHostWithRef}
         onJoinRoom={joinGame}
         onStartSinglePlayer={() => {
@@ -900,7 +1074,7 @@ export default function App() {
 
   const gameContext: GameContextValue = {
     state, dispatch, handleDispatch,
-    myIndex, isHost, isMultiplayer, peerId, joinId, isDisconnected,
+    myIndex, isHost, isMultiplayer, isSpectator, peerId, joinId, isDisconnected,
     showMyCaptures, setShowMyCaptures,
     mobileLogOpen, setMobileLogOpen,
     mobileChatOpen, setMobileChatOpen,

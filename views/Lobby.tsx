@@ -16,6 +16,8 @@ interface LobbyProps {
   setJoinId: (s: string) => void;
   savedSession: SavedSession | null;
   setSavedSession: (s: SavedSession | null) => void;
+  joinError: string | null;
+  clearJoinError: () => void;
   onCreateRoom: (resume?: Extract<SavedSession, { role: 'host' }>) => void;
   onJoinRoom: (resume?: Extract<SavedSession, { role: 'client' }>) => void;
   onStartSinglePlayer: () => void;
@@ -45,6 +47,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   playerName, setPlayerName,
   joinId, setJoinId,
   savedSession, setSavedSession,
+  joinError, clearJoinError,
   onCreateRoom, onJoinRoom, onStartSinglePlayer, onStartRound, onSetTeam, onLeaveRoom,
 }) => {
   const [showRulebook, setShowRulebook] = useState(false);
@@ -56,6 +59,21 @@ export const Lobby: React.FC<LobbyProps> = ({
         <div className="relative z-10 glass-panel p-6 sm:p-8 rounded-2xl max-w-md w-full text-center">
           <h1 className="text-4xl sm:text-5xl font-display mb-1" style={{ color: 'var(--accent)' }}>29</h1>
           <h2 className="text-xs sm:text-sm mb-7 tracking-[0.22em] uppercase" style={{ color: 'var(--dim)' }}>Partnership Trick-Taking</h2>
+          {joinError && (
+            <div
+              className="mb-5 p-3 rounded-xl text-left flex items-start gap-3"
+              style={{ background: 'rgba(232,146,154,0.08)', border: '1px solid rgba(232,146,154,0.35)' }}
+            >
+              <p className="text-sm flex-1" style={{ color: 'var(--red)' }}>{joinError}</p>
+              <button
+                onClick={clearJoinError}
+                className="text-xs px-2 py-0.5 rounded-md transition-all"
+                style={{ background: 'rgba(232,146,154,0.12)', color: 'var(--red)', border: '1px solid rgba(232,146,154,0.4)' }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {savedSession && (
             <div
               className="mb-5 p-4 rounded-xl text-left"
