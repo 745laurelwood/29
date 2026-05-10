@@ -286,6 +286,29 @@ export function BiddingControls({
     if (disabled) setAmount(null);
   }, [disabled]);
 
+  // Convert vertical mouse-wheel into horizontal scroll on desktop, so the bid
+  // chips are reachable without a visible scrollbar. Trackpad horizontal
+  // gestures (deltaX) pass through untouched. Only intercept when we have
+  // remaining room in the requested direction, so the page can keep scrolling
+  // once the chip strip hits its end.
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      const atStart = el.scrollLeft <= 0 && e.deltaY < 0;
+      const atEnd = el.scrollLeft >= max && e.deltaY > 0;
+      if (atStart || atEnd) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
   const canBid = !disabled && amount != null && amount >= minBidAmount && amount <= MAX_BID;
 
   return (
@@ -306,6 +329,7 @@ export function BiddingControls({
         }}
       >
         <div
+          ref={scrollerRef}
           className="h-full overflow-x-auto no-scrollbar"
           style={{
             WebkitOverflowScrolling: 'touch',
