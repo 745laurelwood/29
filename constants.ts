@@ -53,8 +53,9 @@ export const BOT_NAMES = [
   'NeonBadger', 'PeachPhantom', 'BiscuitBandit', 'SunnyScholar', 'JollyJester',
 ];
 
-export function pickBotNames(count: number): string[] {
-  const pool = [...BOT_NAMES];
+export function pickBotNames(count: number, exclude: Iterable<string> = []): string[] {
+  const taken = new Set<string>(exclude);
+  const pool = BOT_NAMES.filter(n => !taken.has(n));
   const picked: string[] = [];
   for (let i = 0; i < count && pool.length > 0; i++) {
     const idx = Math.floor(Math.random() * pool.length);

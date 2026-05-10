@@ -138,7 +138,9 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       };
 
     case 'START_GAME': {
-      const botNames = pickBotNames(3);
+      // Exclude the host's name so a human can't accidentally share a name
+      // with one of the seeded bots.
+      const botNames = pickBotNames(3, [action.payload.playerName]);
       return {
         ...INITIAL_STATE,
         gamePhase: 'LOBBY',
@@ -208,7 +210,15 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         const botsNeeded = slotted.filter(s => s === null).length;
         const existingBots = state.players.filter(p => !p.isHuman && p.name !== EMPTY_SLOT_NAME);
         const freshNeeded = Math.max(0, botsNeeded - existingBots.length);
-        const freshBotNames = freshNeeded > 0 ? pickBotNames(freshNeeded) : [];
+        // Every name already at the table — humans and bots being carried over
+        // from a prior single-player session — must be excluded so fresh picks
+        // can't accidentally duplicate an existing one.
+        const takenNames = new Set<string>();
+        for (const p of state.players) {
+          if (p.isHuman && p.name) takenNames.add(p.name);
+        }
+        for (const b of existingBots) takenNames.add(b.name);
+        const freshBotNames = freshNeeded > 0 ? pickBotNames(freshNeeded, takenNames) : [];
         const botPool: { name: string; existing?: Player }[] = [
           ...existingBots.map(b => ({ name: b.name, existing: b })),
           ...freshBotNames.map(n => ({ name: n })),
