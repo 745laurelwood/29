@@ -251,21 +251,46 @@ export default function App() {
 
   // ── Broadcast state to clients ──
   // Full state goes to the table topic (players); a redacted copy goes to the
-  // audience topic (spectators). If the client thinks it is connected but the
-  // broker has gone away, publish() silently no-ops — kick the reconnect path
-  // so the on-connect rebroadcast handler resyncs everyone.
+  // audience topic (spectators). If the client thinks it has dropped, kick
+  // the reconnect path while still attempting the publish — mqtt.js queues
+  // QoS-0 messages while offline (queueQoSZero defaults to true), so they
+  // get flushed once the socket is back.
   useEffect(() => {
     if (!isHost || !isMultiplayer || !mqttClientRef.current || !state.roomId) return;
     const client = mqttClientRef.current;
     if (!client.connected) {
       try { client.reconnect(); } catch { /* ignore */ }
-      return;
     }
     try {
       client.publish(`nine_game_${state.roomId}`, JSON.stringify({ type: 'SYNC_STATE', payload: state }));
       client.publish(`nine_game_${state.roomId}_spec`, JSON.stringify({ type: 'SYNC_STATE', payload: redactStateForSpectators(state) }));
     } catch (e) { console.error('Host broadcast error:', e); }
   }, [state, isHost, isMultiplayer]);
+
+  // ── Periodic safety rebroadcast ──
+  // Publishes can disappear silently if the broker has gone away in a way
+  // mqtt.js hasn't detected yet, or if a single packet gets dropped. A
+  // low-frequency rebroadcast self-heals the room so a missed update doesn't
+  // require a manual page refresh. Idempotent for clients — SYNC_STATE just
+  // replaces local state with whatever the host has.
+  useEffect(() => {
+    if (!isHost || !isMultiplayer || !state.roomId) return;
+    if (state.gamePhase === 'LOBBY' || state.gamePhase === 'GAME_OVER') return;
+    const interval = setInterval(() => {
+      const client = mqttClientRef.current;
+      if (!client) return;
+      const snapshot = stateRef.current;
+      if (!snapshot.roomId) return;
+      if (!client.connected) {
+        try { client.reconnect(); } catch { /* ignore */ }
+      }
+      try {
+        client.publish(`nine_game_${snapshot.roomId}`, JSON.stringify({ type: 'SYNC_STATE', payload: snapshot }));
+        client.publish(`nine_game_${snapshot.roomId}_spec`, JSON.stringify({ type: 'SYNC_STATE', payload: redactStateForSpectators(snapshot) }));
+      } catch (e) { console.error('Host periodic rebroadcast error:', e); }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isHost, isMultiplayer, state.roomId, state.gamePhase]);
 
   useEffect(() => {
     handleDataRef.current = (data: any) => {
@@ -617,6 +642,21 @@ export default function App() {
    * payload shape: { playerIndex, cardId }
    */
   const executeOrchestratedPlay = async (payload: { playerIndex: number; cardId: string }) => {
+    // Bail before sound/animation if this play would be rejected by the
+    // reducer anyway. Otherwise duplicate MOVE_ANNOUNCEs (broker redelivery
+    // or rebroadcast races) buzz the throw sound repeatedly while leaving
+    // state unchanged.
+    const cur = stateRef.current;
+    const player = cur.players[payload.playerIndex];
+    if (
+      !player ||
+      cur.gamePhase !== 'PLAYING' ||
+      cur.currentTurn !== payload.playerIndex ||
+      cur.currentTrick.length >= NUM_PLAYERS ||
+      !player.hand.some(c => c.id === payload.cardId)
+    ) {
+      return;
+    }
     isOrchestratingRef.current = true;
     const isOpponent = payload.playerIndex !== myIndex;
     if (isOpponent) {
