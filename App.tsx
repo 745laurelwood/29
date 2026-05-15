@@ -244,17 +244,23 @@ export default function App() {
   // remotely. Everything else (round/trick lifecycle, lobby admin, log) is
   // host-only and silently dropped if it shows up over the wire.
   const CLIENT_ALLOWED_ACTIONS = new Set<Action['type']>([
-    'PLACE_BID', 'PASS_BID', 'CHOOSE_TRUMP', 'DEAL_REMAINING', 'PLAY_CARD',
+    'PLACE_BID', 'PASS_BID', 'PASS_BID_DOUBLE', 'CHOOSE_TRUMP', 'DEAL_REMAINING', 'PLAY_CARD',
     'REVEAL_TRUMP', 'DECLARE_ROYALS', 'SKIP_ROYALS', 'SET_PLAYER_TEAM', 'SEND_CHAT',
     'RETURN_TO_LOBBY',
   ]);
 
   // ── Broadcast state to clients ──
   // Full state goes to the table topic (players); a redacted copy goes to the
-  // audience topic (spectators).
+  // audience topic (spectators). If the client thinks it is connected but the
+  // broker has gone away, publish() silently no-ops — kick the reconnect path
+  // so the on-connect rebroadcast handler resyncs everyone.
   useEffect(() => {
     if (!isHost || !isMultiplayer || !mqttClientRef.current || !state.roomId) return;
     const client = mqttClientRef.current;
+    if (!client.connected) {
+      try { client.reconnect(); } catch { /* ignore */ }
+      return;
+    }
     try {
       client.publish(`nine_game_${state.roomId}`, JSON.stringify({ type: 'SYNC_STATE', payload: state }));
       client.publish(`nine_game_${state.roomId}_spec`, JSON.stringify({ type: 'SYNC_STATE', payload: redactStateForSpectators(state) }));
@@ -403,7 +409,11 @@ export default function App() {
     hostInitializedRef.current = false;
     hostRoomIdRef.current = roomId;
 
-    const client = mqtt.connect(MQTT_BROKER);
+    // Tight keepalive so a silently-dead broker connection (TCP/WS still
+     // "open" but the broker is gone) is detected within ~25s rather than
+     // ~90s. Without this, the host can broadcast state into a black hole
+     // for over a minute before mqtt.js realises and reconnects.
+     const client = mqtt.connect(MQTT_BROKER, { keepalive: 15, reschedulePings: true });
     mqttClientRef.current = client;
 
     client.on('connect', () => {
