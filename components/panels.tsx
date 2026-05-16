@@ -146,6 +146,33 @@ export function LastMoveBanner({ message }: { message: string }) {
   );
 }
 
+/** Reveal-trump button — occupies the same slot as LastMoveBanner. Shown when
+ * the local player can't follow suit and trump isn't yet revealed. Declining
+ * is implicit — just play a card normally. */
+export function RevealTrumpButton({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      className="last-move-banner-wrap absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-1/2 max-w-[92vw]"
+      style={{ zIndex: Z_HUD + 5 }}
+    >
+      <button
+        onClick={onClick}
+        title="Ask the bidder to declare trump. If you hold a trump, you must play one."
+        className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold whitespace-nowrap transition-all hover:brightness-110 active:scale-95"
+        style={{
+          background: 'rgba(216,176,97,0.18)',
+          color: 'var(--gold)',
+          border: '1px solid rgba(216,176,97,0.55)',
+          boxShadow: '0 2px 12px rgba(216,176,97,0.25)',
+          letterSpacing: '0.04em',
+        }}
+      >
+        Reveal trump
+      </button>
+    </div>
+  );
+}
+
 /** Game log — pill chip expands to side panel / bottom sheet */
 export function GameLog({ entries, logEndRef }: { entries: string[]; logEndRef: React.RefObject<HTMLDivElement | null> }) {
   const [isExpanded, setIsExpanded] = useState(false);

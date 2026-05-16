@@ -942,27 +942,21 @@ export default function App() {
     && state.currentTrick.length < NUM_PLAYERS
     && revealPhase === 'idle';
 
-  const currentTurnKey = `${state.completedTricks.length}:${state.currentTurn}`;
-  const [revealPromptDismissedKey, setRevealPromptDismissedKey] = useState<string | null>(null);
-  // Reset the dismissal cache when leaving PLAYING — completedTricks resets to []
-  // each round, so a key like "0:2" would otherwise carry over and silently
-  // suppress the prompt in the next round's first trick.
-  useEffect(() => {
-    if (state.gamePhase !== 'PLAYING') setRevealPromptDismissedKey(null);
-  }, [state.gamePhase]);
-  const needRevealDecision = !!(
+  // Reveal-trump is now opt-in via a small on-felt button rather than a
+  // blocking modal. The player can simply play a legal card; if they want
+  // to ask the bidder to declare trump first, they click the button.
+  const canRevealTrump = !!(
     isMyTurnRaw
     && state.ledSuit
     && me
     && !canFollow
     && !state.trumpRevealed
     && state.trumpSuit
-    && revealPromptDismissedKey !== currentTurnKey
   );
 
   // ── Legal cards for my turn ──
   const legalCardIds = new Set<string>();
-  const isMyTurn = isMyTurnRaw && !needRevealDecision;
+  const isMyTurn = isMyTurnRaw;
   if (isMyTurn && me) {
     const mustPlayTrump = state.trumpRevealed && state.revealerIndex === myIndex;
     const legal = getPlayableCards(me.hand, state.ledSuit, mustPlayTrump, state.trumpSuit);
@@ -1013,14 +1007,8 @@ export default function App() {
   };
 
   const executeRevealTrump = () => {
-    if (!needRevealDecision) return;
+    if (!canRevealTrump) return;
     handleDispatch({ type: 'REVEAL_TRUMP', payload: { playerIndex: myIndex } });
-    // No need to mark dismissed — state.trumpRevealed becoming true hides the prompt.
-  };
-
-  const executeDeclineReveal = () => {
-    if (!needRevealDecision) return;
-    setRevealPromptDismissedKey(currentTurnKey);
   };
 
   const executeBid = (amount: number) => {
@@ -1135,8 +1123,8 @@ export default function App() {
     executePlayCard, executeBid, executePass, executePassDouble,
     executeChooseTrump,
     executeDeclareRoyals, executeDeclineRoyals,
-    executeRevealTrump, executeDeclineReveal,
-    needRevealDecision,
+    executeRevealTrump,
+    canRevealTrump,
     canBid, canPassDouble, minBidAmount,
     canChooseTrump, canDeclareRoyals,
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,

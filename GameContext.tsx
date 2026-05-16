@@ -44,8 +44,7 @@ export interface GameContextValue {
   executeDeclareRoyals: () => void;
   executeDeclineRoyals: () => void;
   executeRevealTrump: () => void;
-  executeDeclineReveal: () => void;
-  needRevealDecision: boolean;
+  canRevealTrump: boolean;
 
   // Bidding / trump helpers
   canBid: boolean;

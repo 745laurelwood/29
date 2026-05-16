@@ -1,5 +1,5 @@
 import React from 'react';
-import { HUD, GameLog, LastMoveBanner, TrumpBadge, ChatRoom } from '../components/panels';
+import { HUD, GameLog, LastMoveBanner, RevealTrumpButton, TrumpBadge, ChatRoom } from '../components/panels';
 import { FeltContent } from '../components/FeltContent';
 import { PlayerHand } from '../components/PlayerHand';
 import { SharedOverlays } from '../components/SharedOverlays';
@@ -12,6 +12,7 @@ export const DesktopView: React.FC = () => {
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,
     logEndRef,
     revealPhase,
+    canRevealTrump, executeRevealTrump,
     chatUnread, markChatRead, sendChat,
   } = useGame();
 
@@ -32,9 +33,11 @@ export const DesktopView: React.FC = () => {
           <div className="pointer-events-auto">
             <HUD state={state} isMultiplayer={isMultiplayer} roomId={state.roomId || ''} myIndex={myIndex} />
           </div>
+          {/* GameLog disabled — remembering past plays is part of the game.
           <div className="pointer-events-auto flex justify-end">
             <GameLog entries={state.gameLog} logEndRef={logEndRef} />
           </div>
+          */}
         </div>
 
         <div className="game-area-top flex items-start justify-center pt-3 sm:pt-4">
@@ -56,9 +59,11 @@ export const DesktopView: React.FC = () => {
               <TrumpBadge suit={state.trumpSuit} royalsName={royalsName} />
             )}
 
-            {state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING') && (
+            {canRevealTrump ? (
+              <RevealTrumpButton onClick={executeRevealTrump} />
+            ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING') ? (
               <LastMoveBanner message={state.gameLog[state.gameLog.length - 1]} />
-            )}
+            ) : null}
 
             <div className="flex items-center justify-center w-full h-full z-10">
               <FeltContent />

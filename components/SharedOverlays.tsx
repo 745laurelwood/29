@@ -14,7 +14,6 @@ export const SharedOverlays: React.FC = () => {
     showMyCaptures, setShowMyCaptures,
     isPaused, isDisconnected, offlinePlayers,
     executeDeclareRoyals, executeDeclineRoyals,
-    executeRevealTrump, executeDeclineReveal, needRevealDecision,
     revealPhase,
   } = useGame();
 
@@ -28,23 +27,16 @@ export const SharedOverlays: React.FC = () => {
   const royalsPromptReady = revealPhase === 'royals-prompt' && iHoldRoyals && !state.royalsResolved;
   const showRoyalsAnim = revealPhase === 'royals-toast' && !!state.royalsDeclared;
 
-  // Delay the reveal-trump and royals prompts by 1s so the player can see the
-  // previous card's play-animation settle before the modal pops up.
+  // Delay the royals prompt by 1s so the player can see the previous card's
+  // play-animation settle before the modal pops up.
   const PROMPT_DELAY_MS = 1000;
-  const [revealPromptVisible, setRevealPromptVisible] = React.useState(false);
   const [royalsPromptVisible, setRoyalsPromptVisible] = React.useState(false);
-  React.useEffect(() => {
-    if (!needRevealDecision) { setRevealPromptVisible(false); return; }
-    const t = window.setTimeout(() => setRevealPromptVisible(true), PROMPT_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [needRevealDecision]);
   React.useEffect(() => {
     if (!royalsPromptReady) { setRoyalsPromptVisible(false); return; }
     const t = window.setTimeout(() => setRoyalsPromptVisible(true), PROMPT_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [royalsPromptReady]);
 
-  const showRevealPrompt = needRevealDecision && revealPromptVisible;
   const showRoyalsPrompt = royalsPromptReady && royalsPromptVisible;
 
   return (
@@ -96,36 +88,6 @@ export const SharedOverlays: React.FC = () => {
             >
               Done
             </button>
-          </div>
-        </div>
-      )}
-
-      {showRevealPrompt && state.ledSuit && (
-        <div
-          className="fixed inset-0 flex items-center justify-center p-4"
-          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.72)' }}
-        >
-          <div className="glass-panel p-6 rounded-2xl max-w-sm w-full text-center">
-            <h2 className="text-xl font-display mb-2" style={{ color: 'var(--accent)' }}>Reveal trump?</h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--fg-soft)' }}>
-              You can't follow {SUIT_NAMES[state.ledSuit]}. Asking reveals the trump suit to everyone.
-              If you reveal and hold a trump, you must play one this turn.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={executeDeclineReveal}
-                className="flex-1 py-2.5 rounded-xl text-sm"
-                style={{ background: 'var(--bg-1)', color: 'var(--fg-soft)', border: '1px solid var(--line)' }}
-              >
-                Don't Reveal
-              </button>
-              <button
-                onClick={executeRevealTrump}
-                className="btn-accent flex-1 py-2.5 rounded-xl text-sm font-semibold"
-              >
-                Reveal
-              </button>
-            </div>
           </div>
         </div>
       )}

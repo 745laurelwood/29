@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CardComponent } from '../components/CardComponent';
-import { LastMoveBanner, TrumpBadge, colorizeSuits } from '../components/panels';
+import { LastMoveBanner, RevealTrumpButton, TrumpBadge, colorizeSuits } from '../components/panels';
 import { FeltContent } from '../components/FeltContent';
 import { SharedOverlays } from '../components/SharedOverlays';
 import { useGame } from '../GameContext';
@@ -120,6 +120,7 @@ export const MobileView: React.FC = () => {
     mobileOpponentSource, sweepingToPlayer,
     legalCardIds, executePlayCard,
     revealPhase,
+    canRevealTrump, executeRevealTrump,
   } = useGame();
 
   // Spectators don't get chat, captures pop-overs, or any interactive surface.
@@ -372,9 +373,11 @@ export const MobileView: React.FC = () => {
               <FeltContent />
             </div>
           </div>
-          {state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING') && (
+          {canRevealTrump ? (
+            <RevealTrumpButton onClick={executeRevealTrump} />
+          ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING') ? (
             <LastMoveBanner message={state.gameLog[state.gameLog.length - 1]} />
-          )}
+          ) : null}
         </div>
 
         {bottomPlayerForSpectator && (
@@ -492,10 +495,12 @@ export const MobileView: React.FC = () => {
                 </button>
               )}
               */}
+              {/* Log button disabled — remembering past plays is part of the game.
               <button className="log-btn" onClick={() => setMobileLogOpen(true)}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
                 Log
               </button>
+              */}
             </div>
           </div>
         )}
@@ -557,6 +562,7 @@ export const MobileView: React.FC = () => {
           </section>
         )}
 
+        {/* Mobile log sheet disabled — remembering past plays is part of the game.
         {mobileLogOpen && (
           <>
             <div className="m-sheet-backdrop" onClick={() => setMobileLogOpen(false)} />
@@ -587,6 +593,7 @@ export const MobileView: React.FC = () => {
             </div>
           </>
         )}
+        */}
 
         {mobileChatOpen && chatEnabled && (
           <>
