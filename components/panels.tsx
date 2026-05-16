@@ -108,6 +108,26 @@ export function HUD({
   );
 }
 
+/** Walks a log string and wraps ♥/♦ glyphs in a red span so card mentions
+ *  are visually distinct from spade/club mentions. Everything else passes
+ *  through verbatim. */
+export function colorizeSuits(text: string): React.ReactNode {
+  if (!text) return text;
+  const out: React.ReactNode[] = [];
+  let buf = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '♥' || ch === '♦') {
+      if (buf) { out.push(buf); buf = ''; }
+      out.push(<span key={i} style={{ color: 'var(--red)' }}>{ch}</span>);
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+
 /** "Last move" banner — pinned to the bottom edge of the table felt. */
 export function LastMoveBanner({ message }: { message: string }) {
   return (
@@ -120,7 +140,7 @@ export function LastMoveBanner({ message }: { message: string }) {
         style={{ background: 'var(--bg-2)' }}
       >
         <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] font-bold shrink-0" style={{ color: 'var(--accent)' }}>Last</span>
-        <span className="text-xs sm:text-sm truncate" style={{ color: 'var(--fg-soft)' }}>{message}</span>
+        <span className="text-xs sm:text-sm truncate" style={{ color: 'var(--fg-soft)' }}>{colorizeSuits(message)}</span>
       </div>
     </div>
   );
@@ -140,7 +160,7 @@ export function GameLog({ entries, logEndRef }: { entries: string[]; logEndRef: 
         style={{ zIndex: Z_HUD, color: 'var(--fg-soft)' }}
       >
         <span className="text-[10px] uppercase tracking-[0.14em] shrink-0 font-bold" style={{ color: 'var(--accent)' }}>Log</span>
-        <span className="text-xs truncate">{latest}</span>
+        <span className="text-xs truncate">{colorizeSuits(latest)}</span>
         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -182,7 +202,7 @@ export function GameLog({ entries, logEndRef }: { entries: string[]; logEndRef: 
                   borderBottom: i < entries.length - 1 ? '1px solid var(--line-soft)' : 'none',
                 }}
               >
-                {log}
+                {colorizeSuits(log)}
               </div>
             );
           })}
