@@ -7,7 +7,7 @@ import {
   SUIT_SYMBOLS, SUIT_COLORS,
   TEAM_LABELS, TEAM_TEXT_COLORS,
 } from '../constants';
-import { SUIT_NAMES, NUM_TRICKS } from '../rules';
+import { SUIT_NAMES, NUM_TRICKS, REDOUBLE_MULTIPLIER, getGamePointMagnitude } from '../rules';
 import { clearSession } from '../utils/session';
 
 /** Felt contents — bidding / trump choice / current-trick cards. */
@@ -16,6 +16,7 @@ export const FeltContent: React.FC = () => {
     state, myIndex, isHost, isSpectator, handleDispatch,
     canChooseTrump, executeChooseTrump, executeDeclareSeventhCard,
     canBid, canPassDouble, minBidAmount, executeBid, executePass, executePassDouble,
+    canRedouble, executeRedouble, executeDeclineRedouble,
     leftPlayer, rightPlayer, topPlayer, bottomPlayer,
   } = useGame();
 
@@ -101,6 +102,13 @@ export const FeltContent: React.FC = () => {
       state.players.filter(p => p.team === team).reduce((sum, p) => sum + p.tricksWon, 0),
     );
     const sweepTeam = teamTricks[0] === NUM_TRICKS ? 0 : teamTricks[1] === NUM_TRICKS ? 1 : -1;
+    const doubler = state.players[state.passDoubledBy];
+    const redoubler = state.players[state.redoubledBy];
+    const magnitude = getGamePointMagnitude({
+      doubled: state.passDoubledBy >= 0,
+      redoubled: state.redoubledBy >= 0,
+      swept: sweepTeam >= 0,
+    });
     return (
       <div className="flex flex-col items-center gap-4 sm:gap-6 px-4 py-6 sm:py-8 max-w-xl w-full">
         <div className="text-center">
@@ -118,12 +126,22 @@ export const FeltContent: React.FC = () => {
           </div>
           {sweepTeam >= 0 && (
             <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--accent)' }}>
-              Team {TEAM_LABELS[sweepTeam]} swept all 8 tricks · Game points x2
+              Team {TEAM_LABELS[sweepTeam]} swept all 8 tricks
             </div>
           )}
-          {state.passDoubledBy >= 0 && state.players[state.passDoubledBy] && (
+          {doubler && (
             <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--red)' }}>
-              {state.players[state.passDoubledBy].name} passed & doubled · Game points x2
+              {doubler.name} passed &amp; doubled
+            </div>
+          )}
+          {redoubler && (
+            <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--red)' }}>
+              {redoubler.name} redoubled
+            </div>
+          )}
+          {magnitude > 1 && (
+            <div className="text-sm sm:text-base mt-2 font-display" style={{ color: 'var(--red)' }}>
+              Game points x{magnitude}
             </div>
           )}
         </div>
@@ -225,6 +243,66 @@ export const FeltContent: React.FC = () => {
             );
           })}
         </div>
+      </div>
+    );
+  }
+
+  // ── REDOUBLING: the bidding team answers a pass-double ──
+  if (state.gamePhase === 'REDOUBLING') {
+    const doubler = state.players[state.passDoubledBy];
+    const bidder = state.players[state.bidWinner];
+    const undecided = bidder
+      ? state.players.filter(p => p.team === bidder.team && !state.redoubleDeclinedBy.includes(p.id))
+      : [];
+    return (
+      <div className="flex flex-col items-center gap-4 px-4 max-w-md w-full">
+        <div className="text-xs sm:text-sm uppercase tracking-[0.2em]" style={{ color: 'var(--dim)' }}>Doubled</div>
+        {doubler && (
+          <div className="text-base sm:text-lg font-display text-center" style={{ color: 'var(--fg)' }}>
+            <span className={TEAM_TEXT_COLORS[doubler.team]}>{doubler.name}</span>
+            <span> passed &amp; doubled</span>
+          </div>
+        )}
+        {canRedouble ? (
+          <>
+            <div className="text-xs sm:text-sm text-center" style={{ color: 'var(--fg-soft)' }}>
+              Redouble to take the round to x{REDOUBLE_MULTIPLIER} game points — win or lose.
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={executeDeclineRedouble}
+                className="rounded-2xl px-5 h-[52px] font-display transition-all active:scale-[0.96] hover:brightness-110"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  color: 'var(--fg-soft)',
+                  border: '1px solid var(--line)',
+                }}
+              >
+                No thanks
+              </button>
+              <button
+                onClick={executeRedouble}
+                title={`Redouble — round game points x${REDOUBLE_MULTIPLIER}`}
+                className="rounded-2xl px-5 h-[52px] font-display tabular-nums transition-all active:scale-[0.96] hover:brightness-110"
+                style={{
+                  background: 'rgba(232,146,154,0.18)',
+                  color: 'var(--red)',
+                  border: '1px solid rgba(232,146,154,0.55)',
+                  letterSpacing: '0.04em',
+                  fontWeight: 600,
+                }}
+              >
+                Redouble x{REDOUBLE_MULTIPLIER}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="text-sm animate-pulse text-center" style={{ color: 'var(--fg-soft)' }}>
+            {undecided.length > 0
+              ? `${undecided.map(p => p.name).join(' and ')} deciding whether to redouble...`
+              : 'Waiting...'}
+          </div>
+        )}
       </div>
     );
   }

@@ -61,7 +61,7 @@ export const DesktopView: React.FC = () => {
 
             {canRevealTrump ? (
               <RevealTrumpButton onClick={executeRevealTrump} forced={mustRevealTrump} />
-            ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING') ? (
+            ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING' || state.gamePhase === 'REDOUBLING') ? (
               <LastMoveBanner message={state.gameLog[state.gameLog.length - 1]} />
             ) : null}
 

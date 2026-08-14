@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   MIN_BID, MAX_BID, ROYALS_ADJUSTMENT, WINNING_GAME_POINTS, SEVENTH_CARD_INDEX,
+  REDOUBLE_MULTIPLIER, MAX_GAME_POINT_DELTA,
 } from '../rules';
 
 interface RulebookProps {
@@ -154,6 +155,13 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
             players have not yet bid — and doubles the round's game-point change. The bidding side
             scores <strong>+2</strong> if they make the bid, or <strong>-2</strong> if they miss it.
           </p>
+          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
+            <strong>Redouble:</strong> the bidding side may answer a pass-double. Before trump is
+            chosen, either the bid winner <em>or their partner</em> may <em>redouble</em>, taking the
+            round to <strong>+/-{REDOUBLE_MULTIPLIER}</strong> game points. Whoever redoubles first commits the team,
+            and the decision is made on the first four cards alone — nobody has seen trump or the rest
+            of their hand yet. If both decline, the stake stays doubled.
+          </p>
         </section>
 
         <section className="mb-8">
@@ -203,8 +211,9 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
             is doubled. The bidding side scores <strong>+2</strong> if they sweep, or <strong>-2</strong> if the non-bidding side does.
           </p>
           <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
-            The sweep bonus and the pass-double bonus stack: a sweep after a pass-double makes the
-            change <strong>+/-4</strong>.
+            These stack: a sweep after a pass-double makes the change <strong>+/-4</strong>, and a
+            redouble does the same on its own. However much they combine, a single round can never
+            swing more than <strong>+/-{MAX_GAME_POINT_DELTA}</strong> game points.
           </p>
         </section>
 

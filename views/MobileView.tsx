@@ -5,7 +5,7 @@ import { LastMoveBanner, RevealTrumpButton, TrumpBadge, colorizeSuits } from '..
 import { FeltContent } from '../components/FeltContent';
 import { SharedOverlays } from '../components/SharedOverlays';
 import { useGame } from '../GameContext';
-import { compareCardStrength, NUM_PLAYERS, getPointsForCard } from '../rules';
+import { compareCardStrength, NUM_PLAYERS, getPointsForCard, getStakeMultiplier } from '../rules';
 import { Card, ChatMessage } from '../types';
 import { CHAT_MAX_LEN, compareSuitForHand } from '../constants';
 
@@ -191,6 +191,10 @@ export const MobileView: React.FC = () => {
   // The bidder's own trump reminder when they called seventh card — nothing else
   // shows trump before the public reveal.
   const mySeventhCardId = myHiddenTrumpCardId;
+  const stakeMultiplier = getStakeMultiplier({
+    doubled: state.passDoubledBy >= 0,
+    redoubled: state.redoubledBy >= 0,
+  });
 
   const trickCardIds = new Set(state.currentTrick.map(p => p.card.id));
 
@@ -308,6 +312,9 @@ export const MobileView: React.FC = () => {
               <span className="label">Bid</span>
               <span className="v">
                 {state.bidValue > 0 ? `${state.bidValue + state.bidAdjustment}` : '-'}
+                {stakeMultiplier > 1 && (
+                  <span style={{ color: 'var(--red)', fontWeight: 600 }}> x{stakeMultiplier}</span>
+                )}
               </span>
             </div>
           </div>
@@ -379,7 +386,7 @@ export const MobileView: React.FC = () => {
           </div>
           {canRevealTrump ? (
             <RevealTrumpButton onClick={executeRevealTrump} forced={mustRevealTrump} />
-          ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING') ? (
+          ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING' || state.gamePhase === 'REDOUBLING') ? (
             <LastMoveBanner message={state.gameLog[state.gameLog.length - 1]} />
           ) : null}
         </div>

@@ -5,7 +5,7 @@ import {
   CHAT_MAX_LEN,
   Z_HUD, Z_ACTION_BAR, Z_OVERLAY, Z_MODAL,
 } from '../constants';
-import { MAX_BID, getPointsForCard } from '../rules';
+import { MAX_BID, getPointsForCard, getStakeMultiplier } from '../rules';
 
 /** HUD panel — game-points, bid, trump, tricks. */
 export function HUD({
@@ -38,6 +38,10 @@ export function HUD({
   const roundPts1 = sumTeamRoundPts(1);
 
   const bidder = state.bidWinner >= 0 ? state.players[state.bidWinner] : null;
+  const stakeMultiplier = getStakeMultiplier({
+    doubled: state.passDoubledBy >= 0,
+    redoubled: state.redoubledBy >= 0,
+  });
   const showTrumpToMe = !!(state.trumpSuit && (state.trumpRevealed || myIndex === state.bidWinner));
 
   return (
@@ -89,6 +93,19 @@ export function HUD({
               <span style={{ color: bidder.team === 0 ? 'var(--accent)' : 'var(--red)' }}>
                 {state.bidValue}{state.bidAdjustment !== 0 ? ` → ${state.bidValue + state.bidAdjustment}` : ''}
               </span>
+              {stakeMultiplier > 1 && (
+                <span
+                  className="ml-2 px-1.5 rounded font-semibold tabular-nums"
+                  title={state.redoubledBy >= 0 ? 'Redoubled' : 'Doubled'}
+                  style={{
+                    background: 'rgba(232,146,154,0.18)',
+                    color: 'var(--red)',
+                    border: '1px solid rgba(232,146,154,0.55)',
+                  }}
+                >
+                  x{stakeMultiplier}
+                </span>
+              )}
             </div>
           )}
           {isMultiplayer && roomId && (
