@@ -28,6 +28,31 @@ export const MAX_BID = 29;
 export const DEFAULT_DEALER_BID = MIN_BID;
 
 // ============================================================
+// STAKES (double / redouble)
+// ============================================================
+// An opponent of the high bidder may pass-double during the auction; the
+// bidding team may then answer with a redouble.
+
+export const DOUBLE_MULTIPLIER = 2;
+export const REDOUBLE_MULTIPLIER = 4;
+
+/** "Four game points are the limit: the value cannot be further increased." */
+export const MAX_GAME_POINT_DELTA = 4;
+
+/** Stake agreed during the auction, known before a card is played. */
+export const getStakeMultiplier = (
+  opts: { doubled: boolean; redoubled: boolean },
+): number => opts.redoubled ? REDOUBLE_MULTIPLIER : opts.doubled ? DOUBLE_MULTIPLIER : 1;
+
+/** Magnitude of the round's game-point swing, before the win/loss sign. */
+export const getGamePointMagnitude = (
+  opts: { doubled: boolean; redoubled: boolean; swept: boolean },
+): number => Math.min(
+  MAX_GAME_POINT_DELTA,
+  getStakeMultiplier(opts) * (opts.swept ? 2 : 1),
+);
+
+// ============================================================
 // CARD POINT VALUES
 // ============================================================
 // Jacks = 3 each; 9s = 2; Aces/10s = 1; K, Q, 8, 7 = 0.
@@ -112,11 +137,13 @@ DEAL: 4 cards each. After bidding and trump selection, 4 more cards each.
 
 BIDDING: Each player in turn (starting next to dealer) may bid (${MIN_BID}–${MAX_BID}) or pass. Each bid must exceed the previous. A pass is permanent. If everyone passes, the dealer is forced to bid ${DEFAULT_DEALER_BID}. The highest bidder chooses the trump suit (secretly). PASS-DOUBLE: a player on the opposing team to the current high bidder may instead pass-double — the auction ends immediately and the round's game-point change is doubled.
 
+REDOUBLE: after a pass-double, and before trump is chosen, either member of the bidding team (the bid winner or their partner) may redouble, taking the round's game-point change to x${REDOUBLE_MULTIPLIER}. Whoever redoubles first commits the team; the window closes once both have declined.
+
 PLAY: The bid winner leads the first trick. Players must follow suit if possible. If not, they may request the trump to be revealed (then play trump or any card), otherwise play any card. Once trump is revealed, highest trump wins the trick; else highest card of the led suit wins.
 
 ROYALS: If a player holds both K and Q of the trump suit at the moment trump is revealed, they may declare Royals. If they are on the bidder's team, the team's bid drops by ${ROYALS_ADJUSTMENT}; if on the opposing team, the bid rises by ${ROYALS_ADJUSTMENT}. Adjusted bid stays within [${MIN_BID}, ${MAX_BID}].
 
-SCORING: Count each side's card points (plus +1 to the last-trick winner). If the bidder side meets or exceeds their (adjusted) bid, they score +1 game point; otherwise -1. If either side wins all 8 tricks, the change is doubled. If a pass-double was used during bidding, the change is doubled. (Both stack: a sweep after a pass-double is +/-4.) The non-bidding side is unchanged.
+SCORING: Count each side's card points (plus +1 to the last-trick winner). If the bidder side meets or exceeds their (adjusted) bid, they score +1 game point; otherwise -1. If either side wins all 8 tricks, the change is doubled. A pass-double doubles it; a redouble makes it x${REDOUBLE_MULTIPLIER}. These stack, but the round can never swing more than +/-${MAX_GAME_POINT_DELTA} game points. The non-bidding side is unchanged.
 
 GAME WIN: First side to +${WINNING_GAME_POINTS} game points wins. (Or first side to -${WINNING_GAME_POINTS} loses.)
 `.trim();

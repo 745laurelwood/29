@@ -34,6 +34,11 @@ Deal and play are clockwise. The dealer shuffles and deals 4 cards to each playe
 
 The winner picks a **trump suit secretly**. The dealer then deals the remaining 4 cards to each player so everyone has 8.
 
+### Doubling and redoubling
+
+- **Pass & double**: instead of a plain pass, a player on the team opposing the current high bidder may *pass-double*. This ends the auction immediately — even if other players have not yet bid — and doubles the round's game-point change.
+- **Redouble**: the bidding team may answer. Before trump is chosen, either the bid winner **or their partner** may *redouble*, taking the round to ±4 game points. Whoever redoubles first commits the team, and the choice is made on the first four cards alone — no one has seen trump or the rest of their hand yet. If both decline, the stake stays doubled.
+
 ### Seventh card
 
 If the bid winner is unsure what to pick as trump, they may declare **seventh card**. The dealer completes the deal; the 7th card in the bidder's hand is the trump. The bidder sees it once, and it stays hidden from everyone else until trump is revealed.
@@ -70,6 +75,12 @@ After all 8 tricks are played, each team counts its card points, and the team wi
 - Otherwise: –1 game point to them.
 
 The defending team's game-point total does not change on a successful bid.
+
+That ±1 is then scaled by the stakes:
+
+- **Sweep bonus**: if either side wins all 8 tricks, the change is doubled.
+- **Pass-double**: doubles the change; a **redouble** takes it to ×4.
+- These stack, but a single round can never swing more than **±4** game points.
 
 A team wins the match by reaching **±6 game points**.
 

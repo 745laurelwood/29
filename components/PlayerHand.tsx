@@ -136,6 +136,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
             && state.gamePhase !== 'GAME_OVER'
             && state.gamePhase !== 'ROUND_OVER'
             && state.gamePhase !== 'BIDDING'
+            && state.gamePhase !== 'REDOUBLING'
             && state.gamePhase !== 'CHOOSING_TRUMP';
           const emptyPlaceholder = (
             <div

@@ -6,7 +6,7 @@ import { sounds } from './utils/sound';
 import { flipTransition } from './utils/flip';
 import { loadSession, saveSession, clearSession, SavedSession } from './utils/session';
 import {
-  ROYALS_ANIM_DURATION_MS, AI_BID_DELAY_MS, AI_TRUMP_DELAY_MS, AI_PLAY_DELAY_MS, TRICK_REVEAL_DELAY_MS,
+  ROYALS_ANIM_DURATION_MS, AI_BID_DELAY_MS, AI_REDOUBLE_DELAY_MS, AI_TRUMP_DELAY_MS, AI_PLAY_DELAY_MS, TRICK_REVEAL_DELAY_MS,
   EMPTY_SLOT_NAME, CHAT_MAX_LEN,
 } from './constants';
 import {
@@ -244,7 +244,8 @@ export default function App() {
   // remotely. Everything else (round/trick lifecycle, lobby admin, log) is
   // host-only and silently dropped if it shows up over the wire.
   const CLIENT_ALLOWED_ACTIONS = new Set<Action['type']>([
-    'PLACE_BID', 'PASS_BID', 'PASS_BID_DOUBLE', 'CHOOSE_TRUMP', 'DEAL_REMAINING', 'PLAY_CARD',
+    'PLACE_BID', 'PASS_BID', 'PASS_BID_DOUBLE', 'REDOUBLE', 'DECLINE_REDOUBLE',
+    'CHOOSE_TRUMP', 'DEAL_REMAINING', 'PLAY_CARD',
     'REVEAL_TRUMP', 'DECLARE_ROYALS', 'SKIP_ROYALS', 'SET_PLAYER_TEAM', 'SEND_CHAT',
     'RETURN_TO_LOBBY',
   ]);
@@ -763,10 +764,16 @@ export default function App() {
     const curBid = state.currentBid;
     const hand = bidder.hand;
     const isReclaimer = state.pairActive && state.pairPriority === turn;
+    const highBidder = state.players[state.highBidder];
+    const canDouble = !!(curBid != null && highBidder && highBidder.team !== bidder.team);
     const timer = setTimeout(() => {
       const decision = aiChooseBid(hand, curBid, isReclaimer);
       if (decision === 'PASS') {
-        dispatch({ type: 'PASS_BID', payload: { playerIndex: turn } });
+        if (canDouble && aiShouldPassDouble(hand, curBid!)) {
+          dispatch({ type: 'PASS_BID_DOUBLE', payload: { playerIndex: turn } });
+        } else {
+          dispatch({ type: 'PASS_BID', payload: { playerIndex: turn } });
+        }
       } else {
         sounds.bid();
         dispatch({ type: 'PLACE_BID', payload: { playerIndex: turn, amount: decision } });
@@ -774,7 +781,45 @@ export default function App() {
       aiThinkingRef.current = false;
     }, AI_BID_DELAY_MS);
     return () => { clearTimeout(timer); aiThinkingRef.current = false; };
-  }, [state.gamePhase, state.biddingTurn, state.currentBid, state.pairActive, state.pairPriority, isHost, isMultiplayer]);
+  }, [state.gamePhase, state.biddingTurn, state.currentBid, state.highBidder, state.pairActive, state.pairPriority, isHost, isMultiplayer]);
+
+  // ── AI: redouble ──
+  // Answers a pass-double for any bot on the bidding team. Runs one decision at
+  // a time: dispatching changes `redoubleDeclinedBy`, which re-fires this effect
+  // and picks up the partner, so the single `aiThinkingRef` stays correct.
+  useEffect(() => {
+    if (!isHost && isMultiplayer) return;
+    if (state.gamePhase !== 'REDOUBLING') return;
+    const bidder = state.players[state.bidWinner];
+    if (!bidder) return;
+    const pending = state.players.find(p =>
+      p.team === bidder.team && !p.isHuman && !state.redoubleDeclinedBy.includes(p.id),
+    );
+    if (!pending) return;
+    if (aiThinkingRef.current) return;
+    aiThinkingRef.current = true;
+    const idx = pending.id;
+    const hand = pending.hand;
+    const bidValue = state.bidValue;
+    const isBidWinner = idx === state.bidWinner;
+    const timer = setTimeout(() => {
+      if (aiShouldRedouble(hand, bidValue, isBidWinner)) {
+        sounds.bid();
+        dispatch({ type: 'REDOUBLE', payload: { playerIndex: idx } });
+      } else {
+        dispatch({ type: 'DECLINE_REDOUBLE', payload: { playerIndex: idx } });
+      }
+      aiThinkingRef.current = false;
+    }, AI_REDOUBLE_DELAY_MS);
+    return () => { clearTimeout(timer); aiThinkingRef.current = false; };
+  }, [
+    state.gamePhase, state.bidWinner, state.bidValue,
+    // Optional chaining: this runs on every render, including one fed a state
+    // snapshot from a build that predates these fields (stale saved session, or
+    // a host still on the old version).
+    state.redoubledBy, state.redoubleDeclinedBy?.length,
+    isHost, isMultiplayer,
+  ]);
 
   // ── AI: trump selection ──
   useEffect(() => {
@@ -982,6 +1027,19 @@ export default function App() {
     me.team !== state.players[state.highBidder].team
   );
 
+  // ── Redouble: the bidding team's answer to a pass-double. Either the bid
+  // winner or their partner may take it, and each only gets one say.
+  const canRedouble = !!(
+    !isSpectator &&
+    state.gamePhase === 'REDOUBLING' &&
+    state.bidWinner >= 0 &&
+    me &&
+    state.players[state.bidWinner] &&
+    me.team === state.players[state.bidWinner].team &&
+    state.redoubledBy < 0 &&
+    !state.redoubleDeclinedBy.includes(myIndex)
+  );
+
   // ── Trump helpers ──
   const canChooseTrump = !isSpectator && state.gamePhase === 'CHOOSING_TRUMP' && state.bidWinner === myIndex;
 
@@ -1026,6 +1084,17 @@ export default function App() {
   const executePassDouble = () => {
     if (!canPassDouble) return;
     handleDispatch({ type: 'PASS_BID_DOUBLE', payload: { playerIndex: myIndex } });
+  };
+
+  const executeRedouble = () => {
+    if (!canRedouble) return;
+    sounds.bid();
+    handleDispatch({ type: 'REDOUBLE', payload: { playerIndex: myIndex } });
+  };
+
+  const executeDeclineRedouble = () => {
+    if (!canRedouble) return;
+    handleDispatch({ type: 'DECLINE_REDOUBLE', payload: { playerIndex: myIndex } });
   };
 
   const executeChooseTrump = (suit: Suit) => {
@@ -1121,11 +1190,12 @@ export default function App() {
     revealPhase,
     legalCardIds,
     executePlayCard, executeBid, executePass, executePassDouble,
+    executeRedouble, executeDeclineRedouble,
     executeChooseTrump,
     executeDeclareRoyals, executeDeclineRoyals,
     executeRevealTrump,
     canRevealTrump,
-    canBid, canPassDouble, minBidAmount,
+    canBid, canPassDouble, canRedouble, minBidAmount,
     canChooseTrump, canDeclareRoyals,
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,
     logEndRef,
@@ -1143,12 +1213,8 @@ export default function App() {
 // AI heuristics
 // ============================================================
 
-function aiChooseBid(
-  hand: Card[],
-  currentBid: number | null,
-  isReclaimer: boolean,
-): number | 'PASS' {
-  // Simple hand-strength metric: sum card values + extras for Jacks/9s.
+/** Simple hand-strength metric: card values + extras for Jacks/9s + suit concentration. */
+function handStrength(hand: Card[]): number {
   let strength = 0;
   for (const c of hand) {
     strength += getPointsForCard(c) * 2;
@@ -1158,11 +1224,20 @@ function aiChooseBid(
   // Suit concentration bonus: big if one suit dominates.
   const counts: Record<string, number> = {};
   for (const c of hand) counts[c.suit] = (counts[c.suit] || 0) + 1;
-  const maxCount = Math.max(...Object.values(counts));
-  strength += maxCount * 2;
+  if (hand.length > 0) strength += Math.max(...Object.values(counts)) * 2;
+  return strength;
+}
 
-  // Estimate fair bid target around 16 + strength/3.
-  const estimate = Math.min(22, Math.max(MIN_BID, 14 + Math.floor(strength / 3)));
+/** The bid this hand looks worth, on the same scale as an actual bid. */
+const bidEstimate = (hand: Card[]): number =>
+  Math.min(22, Math.max(MIN_BID, 14 + Math.floor(handStrength(hand) / 3)));
+
+function aiChooseBid(
+  hand: Card[],
+  currentBid: number | null,
+  isReclaimer: boolean,
+): number | 'PASS' {
+  const estimate = bidEstimate(hand);
   // Reclaimers may match (== currentBid); everyone else must strictly raise.
   const minToBid = currentBid == null
     ? MIN_BID
@@ -1170,6 +1245,28 @@ function aiChooseBid(
   if (minToBid > estimate) return 'PASS';
   if (Math.random() < 0.15 && minToBid <= estimate - 1) return minToBid;
   return Math.min(MAX_BID, minToBid);
+}
+
+/**
+ * Answer to a pass-double. Deliberately conservative — a redouble doubles the
+ * downside too, and the hand is still only four cards.
+ */
+function aiShouldRedouble(hand: Card[], bidValue: number, isBidWinner: boolean): boolean {
+  const estimate = bidEstimate(hand);
+  return isBidWinner
+    ? estimate >= bidValue + 2  // took the contract and the hand still clears it comfortably
+    : estimate >= 21;           // partner needs a standout four cards to commit the team
+}
+
+/**
+ * Whether a bot facing an opposing bid should pass-double rather than just pass.
+ * Wants a bid that outruns what this hand says the deal is worth. Kept rare on
+ * purpose: doubled rounds swing 2-4 game points against a target of 6, so a
+ * trigger-happy bot would end matches in a couple of hands.
+ */
+function aiShouldPassDouble(hand: Card[], currentBid: number): boolean {
+  if (currentBid < bidEstimate(hand) + 3) return false;
+  return Math.random() < 0.25;
 }
 
 function aiChooseTrump(hand: Card[]): Suit {
