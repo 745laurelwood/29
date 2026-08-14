@@ -40,6 +40,8 @@ export interface GameContextValue {
   executeBid: (amount: number) => void;
   executePass: () => void;
   executePassDouble: () => void;
+  executeRedouble: () => void;
+  executeDeclineRedouble: () => void;
   executeChooseTrump: (suit: Suit) => void;
   executeDeclareRoyals: () => void;
   executeDeclineRoyals: () => void;
@@ -49,6 +51,7 @@ export interface GameContextValue {
   // Bidding / trump helpers
   canBid: boolean;
   canPassDouble: boolean;
+  canRedouble: boolean;
   minBidAmount: number;
   canChooseTrump: boolean;
   canDeclareRoyals: boolean;

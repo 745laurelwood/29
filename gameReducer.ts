@@ -1,4 +1,4 @@
-import { Card, ChatMessage, GameState, Player, Spectator, Suit, CompletedTrick } from './types';
+import { Card, ChatMessage, GamePhase, GameState, Player, Spectator, Suit, CompletedTrick } from './types';
 import { createDeck, shuffleDeck } from './utils/deck';
 import { getTrickWinner, cardPoints } from './utils/gameLogic';
 import {
@@ -12,6 +12,7 @@ import {
   ROYALS_ADJUSTMENT, hasRoyals,
   WINNING_GAME_POINTS,
   SUIT_NAMES,
+  REDOUBLE_MULTIPLIER, getGamePointMagnitude,
 } from './rules';
 
 export type Action =
@@ -25,6 +26,8 @@ export type Action =
   | { type: 'PLACE_BID'; payload: { playerIndex: number; amount: number } }
   | { type: 'PASS_BID'; payload: { playerIndex: number } }
   | { type: 'PASS_BID_DOUBLE'; payload: { playerIndex: number } }
+  | { type: 'REDOUBLE'; payload: { playerIndex: number } }
+  | { type: 'DECLINE_REDOUBLE'; payload: { playerIndex: number } }
   | { type: 'CHOOSE_TRUMP'; payload: { suit: Suit } }
   | { type: 'DEAL_REMAINING' }
   | { type: 'PLAY_CARD'; payload: { playerIndex: number; cardId: string } }
@@ -55,6 +58,8 @@ export const INITIAL_STATE: GameState = {
   pairPriority: -1,
   pairChallenger: -1,
   passDoubledBy: -1,
+  redoubledBy: -1,
+  redoubleDeclinedBy: [],
 
   bidWinner: -1,
   bidValue: 0,
@@ -261,6 +266,8 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         pairPriority: -1,
         pairChallenger: -1,
         passDoubledBy: -1,
+        redoubledBy: -1,
+        redoubleDeclinedBy: [],
         bidWinner: -1,
         bidValue: 0,
         trumpSuit: null,
@@ -432,7 +439,50 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         passDoubledBy: playerIndex,
         biddingTurn: state.highBidder,
         gameLog: log,
-      });
+      }, 'REDOUBLING');
+    }
+
+    case 'REDOUBLE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'REDOUBLING') return state;
+      if (state.redoubledBy >= 0) return state;
+      const actor = state.players[playerIndex];
+      const bidder = state.players[state.bidWinner];
+      if (!actor || !bidder) return state;
+      // Only the bid winner or their partner may answer a pass-double.
+      if (actor.team !== bidder.team) return state;
+
+      return {
+        ...state,
+        redoubledBy: playerIndex,
+        gamePhase: 'CHOOSING_TRUMP',
+        gameLog: logPush(
+          state.gameLog,
+          `${actor.name} redoubles — round game points x${REDOUBLE_MULTIPLIER}`,
+        ),
+      };
+    }
+
+    case 'DECLINE_REDOUBLE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'REDOUBLING') return state;
+      if (state.redoubleDeclinedBy.includes(playerIndex)) return state;
+      const actor = state.players[playerIndex];
+      const bidder = state.players[state.bidWinner];
+      if (!actor || !bidder) return state;
+      if (actor.team !== bidder.team) return state;
+
+      // One decline doesn't close the window — the partner still gets their say.
+      const declined = [...state.redoubleDeclinedBy, playerIndex];
+      const teamSize = state.players.filter(p => p.team === bidder.team).length;
+      if (declined.length < teamSize) {
+        return { ...state, redoubleDeclinedBy: declined };
+      }
+      return {
+        ...state,
+        redoubleDeclinedBy: declined,
+        gamePhase: 'CHOOSING_TRUMP',
+      };
     }
 
     case 'CHOOSE_TRUMP': {
@@ -644,10 +694,13 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
           : teamTricksWon[1 - bidderTeam] === NUM_TRICKS
             ? 1 - bidderTeam
             : -1;
-      const sweepMultiplier = sweepTeam >= 0 ? 2 : 1;
-      const passDoubleMultiplier = state.passDoubledBy >= 0 ? 2 : 1;
+      const magnitude = getGamePointMagnitude({
+        doubled: state.passDoubledBy >= 0,
+        redoubled: state.redoubledBy >= 0,
+        swept: sweepTeam >= 0,
+      });
 
-      const gamePointDelta = (bidderWon ? 1 : -1) * sweepMultiplier * passDoubleMultiplier;
+      const gamePointDelta = (bidderWon ? 1 : -1) * magnitude;
       const newTotalScores = {
         team0: state.totalScores.team0 + (bidderTeam === 0 ? gamePointDelta : 0),
         team1: state.totalScores.team1 + (bidderTeam === 1 ? gamePointDelta : 0),
@@ -666,7 +719,10 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       nextLog = logPush(nextLog, `Team B scored ${roundScores.team1}`);
       nextLog = logPush(nextLog, `${bidderName} ${bidderWon ? 'made the bid' : 'missed the bid'}`);
       if (sweepTeam >= 0) {
-        nextLog = logPush(nextLog, `Team ${sweepTeam === 0 ? 'A' : 'B'} swept all 8 tricks (game points x2)`);
+        nextLog = logPush(nextLog, `Team ${sweepTeam === 0 ? 'A' : 'B'} swept all 8 tricks`);
+      }
+      if (magnitude > 1) {
+        nextLog = logPush(nextLog, `Game points x${magnitude} this round`);
       }
 
       return {
@@ -730,12 +786,12 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
 // Helpers
 // ============================================================
 
-function finalizeAuction(state: GameState): GameState {
+function finalizeAuction(state: GameState, nextPhase: GamePhase = 'CHOOSING_TRUMP'): GameState {
   if (state.highBidder < 0 || state.currentBid == null) return state;
   const winner = state.players[state.highBidder];
   return {
     ...state,
-    gamePhase: 'CHOOSING_TRUMP',
+    gamePhase: nextPhase,
     bidWinner: state.highBidder,
     bidValue: state.currentBid,
     currentTurn: state.highBidder,

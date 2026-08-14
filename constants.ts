@@ -70,6 +70,7 @@ export function pickBotNames(count: number, exclude: Iterable<string> = []): str
 
 export const ROYALS_ANIM_DURATION_MS = 1600;
 export const AI_BID_DELAY_MS = 1200;
+export const AI_REDOUBLE_DELAY_MS = 1400;
 export const AI_TRUMP_DELAY_MS = 1400;
 export const AI_PLAY_DELAY_MS = 900;
 export const TRICK_REVEAL_DELAY_MS = 1100;
