@@ -1,5 +1,7 @@
 import React from 'react';
-import { MIN_BID, MAX_BID, ROYALS_ADJUSTMENT, WINNING_GAME_POINTS } from '../rules';
+import {
+  MIN_BID, MAX_BID, ROYALS_ADJUSTMENT, WINNING_GAME_POINTS, SEVENTH_CARD_INDEX,
+} from '../rules';
 
 interface RulebookProps {
   onClose: () => void;
@@ -108,9 +110,25 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
           <ol className="list-decimal list-inside space-y-2" style={{ color: 'var(--fg-soft)' }}>
             <li>Four cards are dealt face-down to each player.</li>
             <li>Players bid on the strength of their four-card hand.</li>
-            <li>The bid winner chooses a trump suit secretly.</li>
+            <li>The bid winner chooses a trump suit secretly &mdash; or calls seventh card.</li>
             <li>The dealer then deals four more cards to each player so everyone now has eight.</li>
           </ol>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="font-display text-xl sm:text-2xl mb-3" style={{ color: 'var(--fg)' }}>Seventh Card</h2>
+          <p style={{ color: 'var(--fg-soft)' }}>
+            A bid winner holding no obvious trump suit may call <strong>seventh card</strong> instead of
+            naming one. The rest of the deal is completed and the suit of the{' '}
+            <strong>{SEVENTH_CARD_INDEX + 1}th card in their hand</strong> becomes trump &mdash; whatever
+            it turns out to be. It is a genuine gamble: the choice is made sight unseen and cannot be
+            taken back.
+          </p>
+          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
+            The bidder is shown that card once, and it is marked in their hand until trump is revealed.
+            Everyone else sees only that seventh card was called, never the suit. The card itself stays
+            in the bidder's hand and is played like any other.
+          </p>
         </section>
 
         <section className="mb-8">

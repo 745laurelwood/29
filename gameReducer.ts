@@ -6,7 +6,7 @@ import {
   SUIT_SYMBOLS, MAX_LOG_ENTRIES, CHAT_MAX_HISTORY, EMPTY_SLOT_NAME, pickBotNames,
 } from './constants';
 import {
-  NUM_PLAYERS, NUM_TRICKS, HAND_SIZE_INITIAL, HAND_SIZE_FULL,
+  NUM_PLAYERS, NUM_TRICKS, HAND_SIZE_INITIAL, HAND_SIZE_FULL, SEVENTH_CARD_INDEX,
   MIN_BID, MAX_BID, DEFAULT_DEALER_BID,
   LAST_TRICK_POINT,
   ROYALS_ADJUSTMENT, hasRoyals,
@@ -26,6 +26,7 @@ export type Action =
   | { type: 'PASS_BID'; payload: { playerIndex: number } }
   | { type: 'PASS_BID_DOUBLE'; payload: { playerIndex: number } }
   | { type: 'CHOOSE_TRUMP'; payload: { suit: Suit } }
+  | { type: 'DECLARE_SEVENTH_CARD'; payload: { playerIndex: number } }
   | { type: 'DEAL_REMAINING' }
   | { type: 'PLAY_CARD'; payload: { playerIndex: number; cardId: string } }
   | { type: 'REVEAL_TRUMP'; payload: { playerIndex: number } }
@@ -60,6 +61,7 @@ export const INITIAL_STATE: GameState = {
   bidValue: 0,
   trumpSuit: null,
   trumpChooser: -1,
+  seventhCardId: null,
   trumpRevealed: false,
   revealedAtTrick: -1,
   revealerIndex: -1,
@@ -265,6 +267,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         bidValue: 0,
         trumpSuit: null,
         trumpChooser: -1,
+        seventhCardId: null,
         trumpRevealed: false,
         revealedAtTrick: -1,
         revealerIndex: -1,
@@ -454,17 +457,37 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
 
     case 'DEAL_REMAINING': {
       if (state.gamePhase !== 'PLAYING') return state;
-      const deck = [...state.deck];
-      if (deck.length === 0) return state;
-      const players = state.players.map((p, idx) => {
-        const need = HAND_SIZE_FULL - p.hand.length;
-        const extra = deck.splice(0, Math.max(0, need));
-        return { ...p, hand: [...p.hand, ...extra] };
-      });
+      if (state.deck.length === 0) return state;
+      return dealRemaining(state);
+    }
+
+    case 'DECLARE_SEVENTH_CARD': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'CHOOSING_TRUMP') return state;
+      if (state.bidWinner < 0) return state;
+      // Only the bid winner may call it, and only in place of naming a suit.
+      if (playerIndex !== state.bidWinner) return state;
+      const chooser = state.players[state.bidWinner];
+      if (!chooser) return state;
+
+      // The 7th card only exists once the deal is finished, so complete it here
+      // rather than leaving it to the DEAL_REMAINING that follows CHOOSE_TRUMP.
+      const dealt = dealRemaining(state);
+      const seventh = dealt.players[state.bidWinner].hand[SEVENTH_CARD_INDEX];
+      if (!seventh) return state;
+
       return {
-        ...state,
-        players,
-        deck,
+        ...dealt,
+        trumpSuit: seventh.suit,
+        trumpChooser: state.bidWinner,
+        seventhCardId: seventh.id,
+        gamePhase: 'PLAYING',
+        currentTurn: state.bidWinner,
+        trickLeader: state.bidWinner,
+        ledSuit: null,
+        currentTrick: [],
+        // Deliberately suit-free, like the `chose trump` line — every player sees this.
+        gameLog: logPush(state.gameLog, `${chooser.name} called seventh card`),
       };
     }
 
@@ -729,6 +752,21 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
 // ============================================================
 // Helpers
 // ============================================================
+
+/**
+ * Tops every hand up to HAND_SIZE_FULL from the deck. Phase-agnostic: callers
+ * decide when dealing is legal. `seventh card` needs it during CHOOSING_TRUMP,
+ * while DEAL_REMAINING only runs once play has started.
+ */
+function dealRemaining(state: GameState): GameState {
+  const deck = [...state.deck];
+  const players = state.players.map(p => {
+    const need = HAND_SIZE_FULL - p.hand.length;
+    const extra = deck.splice(0, Math.max(0, need));
+    return { ...p, hand: [...p.hand, ...extra] };
+  });
+  return { ...state, players, deck };
+}
 
 function finalizeAuction(state: GameState): GameState {
   if (state.highBidder < 0 || state.currentBid == null) return state;

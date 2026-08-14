@@ -41,6 +41,7 @@ export interface GameContextValue {
   executePass: () => void;
   executePassDouble: () => void;
   executeChooseTrump: (suit: Suit) => void;
+  executeDeclareSeventhCard: () => void;
   executeDeclareRoyals: () => void;
   executeDeclineRoyals: () => void;
   executeRevealTrump: () => void;

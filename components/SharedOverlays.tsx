@@ -39,6 +39,21 @@ export const SharedOverlays: React.FC = () => {
 
   const showRoyalsPrompt = royalsPromptReady && royalsPromptVisible;
 
+  // Seventh card: show the bid winner the card that just became their trump.
+  // Dismissal is local state — only one client ever renders this, so there is
+  // nothing to replicate. Keying it to the card id resets it every round, and
+  // means a bidder who reloads sees the card again instead of losing it.
+  const [seventhSeenFor, setSeventhSeenFor] = React.useState<string | null>(null);
+  const seventhCard = state.seventhCardId && me
+    ? me.hand.find(c => c.id === state.seventhCardId) ?? null
+    : null;
+  const showSeventhCard = !!(
+    state.seventhCardId &&
+    myIndex === state.bidWinner &&
+    seventhCard &&
+    seventhSeenFor !== state.seventhCardId
+  );
+
   return (
     <>
       {showMyCaptures && me && (
@@ -118,6 +133,44 @@ export const SharedOverlays: React.FC = () => {
                 Declare
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSeventhCard && seventhCard && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ zIndex: 1000, background: 'rgba(0,0,0,0.72)' }}
+        >
+          <div className="glass-panel p-6 rounded-2xl max-w-sm w-full text-center">
+            <h2 className="text-xl font-display mb-1" style={{ color: 'var(--accent)' }}>Your Seventh Card</h2>
+            <p className="text-xs mb-5 uppercase tracking-[0.14em]" style={{ color: 'var(--dim)' }}>
+              Only you can see this
+            </p>
+            <div className="flex justify-center mb-5">
+              {/* Distinct flipId: this card is also rendered in the hand below,
+                  and utils/flip.ts keys on data-card-id keeping only the first
+                  match — sharing an id here corrupts card-flight animations. */}
+              <CardComponent card={seventhCard} flipId={`seventh-${seventhCard.id}`} />
+            </div>
+            <p className="text-sm mb-5" style={{ color: 'var(--fg-soft)' }}>
+              <span
+                className="font-display text-base"
+                style={{
+                  color: seventhCard.suit === Suit.Hearts || seventhCard.suit === Suit.Diamonds
+                    ? 'var(--red)' : 'var(--fg)',
+                }}
+              >
+                {SUIT_NAMES[seventhCard.suit]} {SUIT_SYMBOLS[seventhCard.suit]}
+              </span>
+              <span> is trump. It stays in your hand as a normal card.</span>
+            </p>
+            <button
+              onClick={() => setSeventhSeenFor(state.seventhCardId)}
+              className="btn-accent w-full py-2.5 rounded-xl text-sm font-semibold"
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}

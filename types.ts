@@ -82,6 +82,7 @@ export interface GameState {
   bidValue: number;           // final bid amount
   trumpSuit: Suit | null;     // chosen trump (hidden from non-bidders client-side)
   trumpChooser: number;       // who picks / revealed by — usually bidWinner
+  seventhCardId: string | null; // id of the card that became trump via "seventh card"; null when trump was named outright. Redacted from spectators until reveal — the id encodes the suit.
   trumpRevealed: boolean;
   revealedAtTrick: number;    // index of trick when trump was revealed (-1 if not yet)
   revealerIndex: number;      // player who requested the reveal; cleared once they play a card (-1 when not applicable)

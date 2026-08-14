@@ -187,6 +187,11 @@ export const MobileView: React.FC = () => {
       .reduce((sum, p) => sum + p.capturedCards.reduce((s, c) => s + getPointsForCard(c), 0), 0);
   const roundPts0 = sumTeamRoundPts(0);
   const roundPts1 = sumTeamRoundPts(1);
+  // The bidder's own trump reminder when they called seventh card — nothing else
+  // shows trump before the public reveal.
+  const mySeventhCardId = !isSpectator && myIndex === state.bidWinner && !state.trumpRevealed
+    ? state.seventhCardId
+    : null;
 
   const trickCardIds = new Set(state.currentTrick.map(p => p.card.id));
 
@@ -553,6 +558,7 @@ export const MobileView: React.FC = () => {
                         faceDown={false}
                         isPlayable={isDraggable}
                         isDimmed={dimmed}
+                        className={card.id === mySeventhCardId ? 'ring-2 ring-[color:var(--accent)]' : ''}
                         flipId={isActive ? `hand-placeholder-${card.id}` : undefined}
                       />
                     </div>

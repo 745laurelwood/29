@@ -238,13 +238,16 @@ export default function App() {
     deck: [],
     trumpSuit: s.trumpRevealed ? s.trumpSuit : null,
     trumpChooser: s.trumpRevealed ? s.trumpChooser : -1,
+    // Card ids are `${suit}-${rank}`, so this would hand a watcher the trump suit.
+    seventhCardId: s.trumpRevealed ? s.seventhCardId : null,
   });
 
   // Action types that a (legitimate) seated client is allowed to dispatch
   // remotely. Everything else (round/trick lifecycle, lobby admin, log) is
   // host-only and silently dropped if it shows up over the wire.
   const CLIENT_ALLOWED_ACTIONS = new Set<Action['type']>([
-    'PLACE_BID', 'PASS_BID', 'PASS_BID_DOUBLE', 'CHOOSE_TRUMP', 'DEAL_REMAINING', 'PLAY_CARD',
+    'PLACE_BID', 'PASS_BID', 'PASS_BID_DOUBLE',
+    'CHOOSE_TRUMP', 'DECLARE_SEVENTH_CARD', 'DEAL_REMAINING', 'PLAY_CARD',
     'REVEAL_TRUMP', 'DECLARE_ROYALS', 'SKIP_ROYALS', 'SET_PLAYER_TEAM', 'SEND_CHAT',
     'RETURN_TO_LOBBY',
   ]);
@@ -1035,6 +1038,13 @@ export default function App() {
     setTimeout(() => handleDispatch({ type: 'DEAL_REMAINING' }), 150);
   };
 
+  // No DEAL_REMAINING chaser here: the reducer completes the deal itself, since
+  // the 7th card doesn't exist until every hand is full.
+  const executeDeclareSeventhCard = () => {
+    if (!canChooseTrump) return;
+    handleDispatch({ type: 'DECLARE_SEVENTH_CARD', payload: { playerIndex: myIndex } });
+  };
+
   const executeDeclareRoyals = () => {
     if (!canDeclareRoyals) return;
     handleDispatch({ type: 'DECLARE_ROYALS', payload: { playerIndex: myIndex } });
@@ -1121,7 +1131,7 @@ export default function App() {
     revealPhase,
     legalCardIds,
     executePlayCard, executeBid, executePass, executePassDouble,
-    executeChooseTrump,
+    executeChooseTrump, executeDeclareSeventhCard,
     executeDeclareRoyals, executeDeclineRoyals,
     executeRevealTrump,
     canRevealTrump,

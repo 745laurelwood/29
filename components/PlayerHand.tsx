@@ -33,6 +33,11 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
     && state.currentTrick.length < NUM_PLAYERS
     && revealPhase === 'idle';
   const isMyBidTurn = state.gamePhase === 'BIDDING' && state.biddingTurn === playerIndex;
+  // The bidder's own trump reminder when they called seventh card: the modal is
+  // shown once, and nothing else displays trump before the public reveal.
+  const seventhCardId = isMe && myIndex === state.bidWinner && !state.trumpRevealed
+    ? state.seventhCardId
+    : null;
 
   const wrapperRotation = position === 'left' ? 'rotate-90' : position === 'right' ? '-rotate-90' : '';
   const wrapperScale = position !== 'bottom' ? 'scale-75' : '';
@@ -158,6 +163,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
                       faceDown={false}
                       isPlayable={isCurrentTurn && isLegal}
                       isDimmed={dimmed}
+                      className={card.id === seventhCardId ? 'ring-2 ring-[color:var(--accent)]' : ''}
                       onClick={isCurrentTurn && isLegal ? () => executePlayCard(card.id) : undefined}
                     />
                   );

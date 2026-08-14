@@ -14,7 +14,7 @@ import { clearSession } from '../utils/session';
 export const FeltContent: React.FC = () => {
   const {
     state, myIndex, isHost, isSpectator, handleDispatch,
-    canChooseTrump, executeChooseTrump,
+    canChooseTrump, executeChooseTrump, executeDeclareSeventhCard,
     canBid, canPassDouble, minBidAmount, executeBid, executePass, executePassDouble,
     leftPlayer, rightPlayer, topPlayer, bottomPlayer,
   } = useGame();
@@ -261,6 +261,24 @@ export const FeltContent: React.FC = () => {
                   <div className="text-[10px] uppercase tracking-[0.14em] mt-1 opacity-70">{SUIT_NAMES[suit]}</div>
                 </button>
               ))}
+
+              {/* Wide bar under the 2x2 suit grid — a fifth grid child would
+                  otherwise sit alone in a third row. */}
+              <button
+                onClick={executeDeclareSeventhCard}
+                title="Take the 7th card dealt to you as trump, sight unseen"
+                className="col-span-2 w-full rounded-xl px-4 py-3 flex flex-col items-center justify-center transition-all hover:-translate-y-0.5 active:scale-[0.98]"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px dashed var(--line)',
+                  color: 'var(--fg)',
+                }}
+              >
+                <span className="font-display text-sm sm:text-base">Seventh Card</span>
+                <span className="text-[10px] uppercase tracking-[0.14em] mt-0.5" style={{ color: 'var(--dim)' }}>
+                  Sight unseen
+                </span>
+              </button>
             </div>
           </>
         ) : (

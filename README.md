@@ -36,7 +36,9 @@ The winner picks a **trump suit secretly**. The dealer then deals the remaining 
 
 ### Seventh card
 
-If the bid winner is unsure what to pick as trump, they may declare **seventh card**. The dealer completes the deal; the 7th card in the bidder's hand is the trump. The bidder sees it once, and it stays hidden from everyone else until trump is revealed.
+If the bid winner is unsure what to pick as trump, they may declare **seventh card** instead of naming a suit. The dealer completes the deal and the 7th card in the bidder's hand becomes the trump, whatever it turns out to be — the call is made sight unseen and cannot be taken back.
+
+The bidder is shown that card once and it stays marked in their hand until trump is revealed. Everyone else sees only that seventh card was called, never the suit. The card remains in the bidder's hand and is played like any other.
 
 ### Play
 
