@@ -10,6 +10,8 @@ import { getTrickStrength, getPointsForCard } from '../rules';
  * - Otherwise: every card is legal — UNLESS this player is the one who just
  *   revealed trump on this very turn and holds at least one trump, in which
  *   case they must play a trump.
+ *
+ * Given a non-empty hand this always returns at least one card.
  */
 export const getPlayableCards = (
   hand: Card[],
@@ -25,6 +27,30 @@ export const getPlayableCards = (
     if (trumps.length > 0) return trumps;
   }
   return [...hand];
+};
+
+/**
+ * Legal cards, additionally honouring the ban on playing the "seventh card"
+ * (trump taken sight unseen — see DECLARE_SEVENTH_CARD) before trump is
+ * revealed. It stands in for a face-down trump, so its holder may not table it
+ * while the suit is still secret.
+ *
+ * The ban is applied AFTER the ordinary filtering, never before: the hidden
+ * card still counts as a card of its suit for the follow-suit test, so removing
+ * it early would let the bidder renege on a suit they actually hold.
+ *
+ * Unlike getPlayableCards, an EMPTY result is meaningful and reachable: the
+ * holder has no playable card and must reveal trump before they can move.
+ */
+export const getPlayableCardsHidingTrump = (
+  hand: Card[],
+  ledSuit: Suit | null,
+  mustPlayTrump: boolean,
+  trumpSuit: Suit | null,
+  hiddenTrumpCardId: string | null,
+): Card[] => {
+  const legal = getPlayableCards(hand, ledSuit, mustPlayTrump, trumpSuit);
+  return hiddenTrumpCardId ? legal.filter(c => c.id !== hiddenTrumpCardId) : legal;
 };
 
 export const canFollowSuit = (hand: Card[], suit: Suit): boolean =>

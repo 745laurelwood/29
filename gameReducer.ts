@@ -500,6 +500,11 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       if (!card) return state;
       if (state.currentTrick.length >= NUM_PLAYERS) return state;
 
+      // The seventh card is a face-down trump — it can't hit the table while
+      // trump is still secret. The holder must REVEAL_TRUMP first, which is
+      // always available to them in this phase, so this can't strand anyone.
+      if (!state.trumpRevealed && state.seventhCardId === cardId) return state;
+
       // Enforce follow-suit if possible.
       const leadingTrick = state.currentTrick.length === 0;
       if (!leadingTrick && state.ledSuit) {

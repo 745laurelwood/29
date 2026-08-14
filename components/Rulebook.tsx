@@ -126,8 +126,13 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
           </p>
           <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
             The bidder is shown that card once, and it is marked in their hand until trump is revealed.
-            Everyone else sees only that seventh card was called, never the suit. The card itself stays
-            in the bidder's hand and is played like any other.
+            Everyone else sees only that seventh card was called, never the suit.
+          </p>
+          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
+            The card stands in for a face-down trump, so the bidder <strong>cannot play it while trump
+            is still hidden</strong>. If it becomes their only otherwise-legal card &mdash; the led suit
+            turns out to be trump and it is their only one, or it is the last card in their hand &mdash;
+            they must reveal trump before they can play it.
           </p>
         </section>
 

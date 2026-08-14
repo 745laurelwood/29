@@ -21,7 +21,7 @@ import { GameProvider, GameContextValue } from './GameContext';
 import { MobileView } from './views/MobileView';
 import { DesktopView } from './views/DesktopView';
 import { Lobby } from './views/Lobby';
-import { getPlayableCards, canFollowSuit, getTrickWinner } from './utils/gameLogic';
+import { getPlayableCards, getPlayableCardsHidingTrump, canFollowSuit, getTrickWinner } from './utils/gameLogic';
 
 const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
 
@@ -656,7 +656,8 @@ export default function App() {
       cur.gamePhase !== 'PLAYING' ||
       cur.currentTurn !== payload.playerIndex ||
       cur.currentTrick.length >= NUM_PLAYERS ||
-      !player.hand.some(c => c.id === payload.cardId)
+      !player.hand.some(c => c.id === payload.cardId) ||
+      (!cur.trumpRevealed && cur.seventhCardId === payload.cardId)
     ) {
       return;
     }
@@ -945,26 +946,48 @@ export default function App() {
     && state.currentTrick.length < NUM_PLAYERS
     && revealPhase === 'idle';
 
-  // Reveal-trump is now opt-in via a small on-felt button rather than a
-  // blocking modal. The player can simply play a legal card; if they want
-  // to ask the bidder to declare trump first, they click the button.
-  const canRevealTrump = !!(
-    isMyTurnRaw
-    && state.ledSuit
-    && me
-    && !canFollow
-    && !state.trumpRevealed
-    && state.trumpSuit
-  );
+  // The seventh card, while trump is still secret and it's still in my hand.
+  // Non-null only for the bidder who called it — nobody else holds that card.
+  // The in-hand test also rules out the window on a non-host client where every
+  // hand is empty but the round hasn't ended yet (local END_TRICK of trick 8
+  // has run; the host's END_ROUND hasn't synced), which would otherwise read as
+  // a forced reveal below.
+  const myHiddenTrumpCardId =
+    !state.trumpRevealed && state.seventhCardId && me?.hand.some(c => c.id === state.seventhCardId)
+      ? state.seventhCardId
+      : null;
 
   // ── Legal cards for my turn ──
+  // May be EMPTY when I hold the hidden seventh card — see mustRevealTrump.
   const legalCardIds = new Set<string>();
   const isMyTurn = isMyTurnRaw;
   if (isMyTurn && me) {
     const mustPlayTrump = state.trumpRevealed && state.revealerIndex === myIndex;
-    const legal = getPlayableCards(me.hand, state.ledSuit, mustPlayTrump, state.trumpSuit);
+    const legal = getPlayableCardsHidingTrump(
+      me.hand, state.ledSuit, mustPlayTrump, state.trumpSuit, myHiddenTrumpCardId,
+    );
     for (const c of legal) legalCardIds.add(c.id);
   }
+
+  // Every other card is spent or illegal, so the seventh card is all that's
+  // left — revealing trump is the only way forward.
+  const mustRevealTrump = !!(
+    isMyTurnRaw && me && myHiddenTrumpCardId && state.trumpSuit && legalCardIds.size === 0
+  );
+
+  // Reveal-trump is now opt-in via a small on-felt button rather than a
+  // blocking modal. The player can simply play a legal card; if they want
+  // to ask the bidder to declare trump first, they click the button. The
+  // forced case is the exception: it also fires when they *can* follow suit
+  // (their only card of the led suit is the seventh) and when leading, so it
+  // can't sit behind the `ledSuit && !canFollow` test.
+  const canRevealTrump = !!(
+    isMyTurnRaw
+    && me
+    && !state.trumpRevealed
+    && state.trumpSuit
+    && ((state.ledSuit && !canFollow) || mustRevealTrump)
+  );
 
   // ── Bidding helpers ──
   const canBid = !isSpectator && state.gamePhase === 'BIDDING' && state.biddingTurn === myIndex;
@@ -1134,7 +1157,7 @@ export default function App() {
     executeChooseTrump, executeDeclareSeventhCard,
     executeDeclareRoyals, executeDeclineRoyals,
     executeRevealTrump,
-    canRevealTrump,
+    canRevealTrump, mustRevealTrump, myHiddenTrumpCardId,
     canBid, canPassDouble, minBidAmount,
     canChooseTrump, canDeclareRoyals,
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,
@@ -1230,6 +1253,9 @@ function aiChooseCard(
   completedTricks: CompletedTrick[] = [],
 ): Card | null {
   if (hand.length === 0) return null;
+  // Plain getPlayableCards, not the hiding-trump variant: bots never call
+  // seventh card, so no bot ever holds it. Letting them would also mean giving
+  // this function a forced-reveal branch.
   const legal = getPlayableCards(hand, ledSuit, mustPlayTrump, trump);
   if (legal.length === 0) return hand[0];
 

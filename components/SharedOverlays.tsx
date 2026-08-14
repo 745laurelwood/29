@@ -163,7 +163,7 @@ export const SharedOverlays: React.FC = () => {
               >
                 {SUIT_NAMES[seventhCard.suit]} {SUIT_SYMBOLS[seventhCard.suit]}
               </span>
-              <span> is trump. It stays in your hand as a normal card.</span>
+              <span> is trump. It stays in your hand, but you can't play it until trump is revealed — if it becomes your only legal card, you'll have to reveal first.</span>
             </p>
             <button
               onClick={() => setSeventhSeenFor(state.seventhCardId)}

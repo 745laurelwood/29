@@ -116,7 +116,7 @@ DEAL: 4 cards each. After bidding and trump selection, 4 more cards each.
 
 BIDDING: Each player in turn (starting next to dealer) may bid (${MIN_BID}–${MAX_BID}) or pass. Each bid must exceed the previous. A pass is permanent. If everyone passes, the dealer is forced to bid ${DEFAULT_DEALER_BID}. The highest bidder chooses the trump suit (secretly). PASS-DOUBLE: a player on the opposing team to the current high bidder may instead pass-double — the auction ends immediately and the round's game-point change is doubled.
 
-SEVENTH CARD: instead of naming a suit, the bid winner may call "seventh card". The rest of the deal is completed and the suit of the ${SEVENTH_CARD_INDEX + 1}th card in their hand becomes trump, whatever it is. They are shown that card once; it stays hidden from everyone else until trump is revealed, and it stays in their hand as a normal card.
+SEVENTH CARD: instead of naming a suit, the bid winner may call "seventh card". The rest of the deal is completed and the suit of the ${SEVENTH_CARD_INDEX + 1}th card in their hand becomes trump, whatever it is. They are shown that card once; it stays hidden from everyone else until trump is revealed. It stays in their hand but cannot be played while trump is still hidden — if it becomes their only otherwise-legal card, they must reveal trump first.
 
 PLAY: The bid winner leads the first trick. Players must follow suit if possible. If not, they may request the trump to be revealed (then play trump or any card), otherwise play any card. Once trump is revealed, highest trump wins the trick; else highest card of the led suit wins.
 

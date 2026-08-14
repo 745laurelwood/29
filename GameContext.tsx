@@ -46,6 +46,10 @@ export interface GameContextValue {
   executeDeclineRoyals: () => void;
   executeRevealTrump: () => void;
   canRevealTrump: boolean;
+  /** No legal card left but the still-hidden seventh card — reveal or nothing. */
+  mustRevealTrump: boolean;
+  /** My own seventh card while trump is secret; null otherwise. */
+  myHiddenTrumpCardId: string | null;
 
   // Bidding / trump helpers
   canBid: boolean;

@@ -120,7 +120,8 @@ export const MobileView: React.FC = () => {
     mobileOpponentSource, sweepingToPlayer,
     legalCardIds, executePlayCard,
     revealPhase,
-    canRevealTrump, executeRevealTrump,
+    canRevealTrump, mustRevealTrump, executeRevealTrump,
+    myHiddenTrumpCardId,
   } = useGame();
 
   // Spectators don't get chat, captures pop-overs, or any interactive surface.
@@ -189,9 +190,7 @@ export const MobileView: React.FC = () => {
   const roundPts1 = sumTeamRoundPts(1);
   // The bidder's own trump reminder when they called seventh card — nothing else
   // shows trump before the public reveal.
-  const mySeventhCardId = !isSpectator && myIndex === state.bidWinner && !state.trumpRevealed
-    ? state.seventhCardId
-    : null;
+  const mySeventhCardId = myHiddenTrumpCardId;
 
   const trickCardIds = new Set(state.currentTrick.map(p => p.card.id));
 
@@ -379,7 +378,7 @@ export const MobileView: React.FC = () => {
             </div>
           </div>
           {canRevealTrump ? (
-            <RevealTrumpButton onClick={executeRevealTrump} />
+            <RevealTrumpButton onClick={executeRevealTrump} forced={mustRevealTrump} />
           ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING') ? (
             <LastMoveBanner message={state.gameLog[state.gameLog.length - 1]} />
           ) : null}

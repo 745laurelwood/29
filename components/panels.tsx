@@ -148,8 +148,10 @@ export function LastMoveBanner({ message }: { message: string }) {
 
 /** Reveal-trump button — occupies the same slot as LastMoveBanner. Shown when
  * the local player can't follow suit and trump isn't yet revealed. Declining
- * is implicit — just play a card normally. */
-export function RevealTrumpButton({ onClick }: { onClick: () => void }) {
+ * is implicit — just play a card normally, except in the `forced` case, where
+ * the only card left is the bidder's own hidden seventh card and their hand is
+ * dimmed to nothing until they reveal. */
+export function RevealTrumpButton({ onClick, forced = false }: { onClick: () => void; forced?: boolean }) {
   return (
     <div
       className="last-move-banner-wrap absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-1/2 max-w-[92vw]"
@@ -157,17 +159,21 @@ export function RevealTrumpButton({ onClick }: { onClick: () => void }) {
     >
       <button
         onClick={onClick}
-        title="Ask the bidder to declare trump. If you hold a trump, you must play one."
-        className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold whitespace-nowrap transition-all hover:brightness-110 active:scale-95"
+        title={forced
+          ? 'Your only playable card is the seventh card — trump must be revealed before you can play it.'
+          : 'Ask the bidder to declare trump. If you hold a trump, you must play one.'}
+        className={`rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold whitespace-nowrap transition-all hover:brightness-110 active:scale-95 ${forced ? 'animate-pulse' : ''}`}
         style={{
-          background: 'rgba(216,176,97,0.18)',
+          // Forced: the whole hand is dimmed, so this button is the only thing
+          // to click — turn it up so it doesn't read as an optional aside.
+          background: forced ? 'rgba(216,176,97,0.30)' : 'rgba(216,176,97,0.18)',
           color: 'var(--gold)',
-          border: '1px solid rgba(216,176,97,0.55)',
-          boxShadow: '0 2px 12px rgba(216,176,97,0.25)',
+          border: `1px solid rgba(216,176,97,${forced ? 0.9 : 0.55})`,
+          boxShadow: `0 2px 12px rgba(216,176,97,${forced ? 0.45 : 0.25})`,
           letterSpacing: '0.04em',
         }}
       >
-        Reveal trump
+        {forced ? 'Reveal trump to play' : 'Reveal trump'}
       </button>
     </div>
   );

@@ -233,20 +233,23 @@ export const FeltContent: React.FC = () => {
   if (state.gamePhase === 'CHOOSING_TRUMP') {
     const chooser = state.players[state.bidWinner];
     return (
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-3 sm:gap-4">
         <div className="text-xs sm:text-sm uppercase tracking-[0.2em]" style={{ color: 'var(--dim)' }}>Trump Selection</div>
         {canChooseTrump ? (
           <>
             <div className="text-base sm:text-lg font-display" style={{ color: 'var(--fg)' }}>
               Choose the Trump Suit
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {/* One row of five, not a 2x2 grid plus an extra: the felt centre
+                is wide and short, so height is the scarce axis. Two rows of
+                tiles overflow the panel on anything but a tall window. */}
+            <div className="flex flex-wrap items-center justify-center gap-3 max-w-full">
               {(Object.values(Suit) as Suit[]).map(suit => (
                 <button
                   key={suit}
                   onClick={() => executeChooseTrump(suit)}
                   className={`
-                    relative w-20 h-24 sm:w-24 sm:h-28 rounded-xl flex flex-col items-center justify-center
+                    trump-tile relative w-20 h-24 sm:h-28 rounded-xl flex flex-col items-center justify-center
                     transition-all hover:-translate-y-1 active:scale-95
                     ${SUIT_COLORS[suit]}
                   `}
@@ -257,25 +260,26 @@ export const FeltContent: React.FC = () => {
                   }}
                   title={`Choose ${SUIT_NAMES[suit]}`}
                 >
-                  <div className="text-5xl sm:text-6xl">{SUIT_SYMBOLS[suit]}</div>
+                  <div className="trump-glyph text-5xl sm:text-6xl">{SUIT_SYMBOLS[suit]}</div>
                   <div className="text-[10px] uppercase tracking-[0.14em] mt-1 opacity-70">{SUIT_NAMES[suit]}</div>
                 </button>
               ))}
 
-              {/* Wide bar under the 2x2 suit grid — a fifth grid child would
-                  otherwise sit alone in a third row. */}
+              {/* Fifth tile, to the right of the four suits. Same height as
+                  them and a little wider for the label; dashed and unfilled so
+                  it still reads as the odd one out rather than a suit. */}
               <button
                 onClick={executeDeclareSeventhCard}
                 title="Take the 7th card dealt to you as trump, sight unseen"
-                className="col-span-2 w-full rounded-xl px-4 py-3 flex flex-col items-center justify-center transition-all hover:-translate-y-0.5 active:scale-[0.98]"
+                className="trump-tile w-28 h-24 sm:h-28 rounded-xl px-2 flex flex-col items-center justify-center text-center transition-all hover:-translate-y-1 active:scale-95"
                 style={{
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px dashed var(--line)',
                   color: 'var(--fg)',
                 }}
               >
-                <span className="font-display text-sm sm:text-base">Seventh Card</span>
-                <span className="text-[10px] uppercase tracking-[0.14em] mt-0.5" style={{ color: 'var(--dim)' }}>
+                <span className="font-display text-sm sm:text-base leading-tight">Seventh<br />Card</span>
+                <span className="text-[10px] uppercase tracking-[0.14em] mt-1.5" style={{ color: 'var(--dim)' }}>
                   Sight unseen
                 </span>
               </button>
