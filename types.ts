@@ -53,8 +53,9 @@ export interface Spectator {
 export type GamePhase =
   | 'LOBBY'
   | 'BIDDING'
-  | 'REDOUBLING'
   | 'CHOOSING_TRUMP'
+  | 'DOUBLING'
+  | 'REDOUBLING'
   | 'PLAYING'
   | 'ROUND_OVER'
   | 'GAME_OVER';
@@ -76,15 +77,19 @@ export interface GameState {
   pairActive: boolean;         // true while an auction pair is in progress
   pairPriority: number;        // within an active pair, the original high-bidder (-1 if no pair); keeps match privilege throughout the pair
   pairChallenger: number;      // within an active pair, the player who opened the pair by raising (-1 if no pair); must always raise strictly
-  passDoubledBy: number;       // index of the opposing-team player who pass-doubled; -1 if none. Doubles the round's game-point delta and ends bidding immediately.
+
+  // Stakes — settled after trump is chosen and before the second deal.
+  doubledBy: number;           // index of the defender who doubled; -1 if none. Doubles the round's game-point delta.
+  doubleDeclinedBy: number[];  // defender indices that have declined to double; the window closes once every one of them has.
   redoubledBy: number;         // index of the bidding-team player who redoubled; -1 if none. Takes the round's game-point delta to x4.
   redoubleDeclinedBy: number[]; // bidding-team indices that have declined to redouble; the window closes once every one of them has.
 
   // Contract
   bidWinner: number;          // -1 until bidding completes
   bidValue: number;           // final bid amount
-  trumpSuit: Suit | null;     // chosen trump (hidden from non-bidders client-side)
+  trumpSuit: Suit | null;     // chosen trump (hidden from non-bidders client-side); stays null through the stakes window when seventh card was called
   trumpChooser: number;       // who picks / revealed by — usually bidWinner
+  seventhCardCalled: boolean; // bid winner took the seventh card instead of naming a suit; the deal that resolves it waits for the stakes window to close
   seventhCardId: string | null; // id of the card that became trump via "seventh card"; null when trump was named outright. Redacted from spectators until reveal — the id encodes the suit.
   trumpRevealed: boolean;
   revealedAtTrick: number;    // index of trick when trump was revealed (-1 if not yet)

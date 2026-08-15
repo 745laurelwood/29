@@ -32,20 +32,24 @@ Deal and play are clockwise. The dealer shuffles and deals 4 cards to each playe
 - When a new high bid is placed, the previous high bidder gets the chance to **match** it (retaining priority) or raise higher.
 - If everyone passes, the dealer is assigned a bid of 16 and picks trump by default.
 
-The winner picks a **trump suit secretly**. The dealer then deals the remaining 4 cards to each player so everyone has 8.
-
-### Doubling and redoubling
-
-- **Pass & double**: instead of a plain pass, a player on the team opposing the current high bidder may *pass-double*. This ends the auction immediately — even if other players have not yet bid — and doubles the round's game-point change.
-- **Redouble**: the bidding team may answer. Before trump is chosen, either the bid winner **or their partner** may *redouble*, taking the round to ±4 game points. Whoever redoubles first commits the team, and the choice is made on the first four cards alone — no one has seen trump or the rest of their hand yet. If both decline, the stake stays doubled.
+The winner picks a **trump suit secretly**. The last 4 cards stay in the deck until the stakes are settled.
 
 ### Seventh card
 
-If the bid winner is unsure what to pick as trump, they may declare **seventh card** instead of naming a suit. The dealer completes the deal and the 7th card in the bidder's hand becomes the trump, whatever it turns out to be — the call is made sight unseen and cannot be taken back.
+If the bid winner is unsure what to pick as trump, they may declare **seventh card** instead of naming a suit. Once the stakes are settled the dealer completes the deal, and the 7th card in the bidder's hand becomes the trump, whatever it turns out to be — the call is made sight unseen and cannot be taken back.
 
 The bidder is shown that card once and it stays marked in their hand until trump is revealed. Everyone else sees only that seventh card was called, never the suit.
 
 The card stands in for a face-down trump: the bidder **cannot play it while trump is still hidden**. If it becomes their only otherwise-legal card — the led suit turns out to be trump and it is their only one, or it is the last card in their hand — they must reveal trump before they can play it.
+
+### Doubling and redoubling
+
+Stakes are settled after the contract is set and before the second deal, so every decision is made on four cards, knowing a trump has been chosen but not which suit it is.
+
+- **Double**: either defender may double the round's game-point change. Whoever doubles first commits their side; the window closes once both have declined.
+- **Redouble**: the bidding team may answer. Either the bid winner **or their partner** may *redouble*, taking the round to ±4 game points. Whoever redoubles first commits the team. If both decline, the stake stays doubled.
+
+The dealer then deals the remaining 4 cards to each player so everyone has 8, and the first trick begins.
 
 ### Play
 
@@ -83,7 +87,7 @@ The defending team's game-point total does not change on a successful bid.
 That ±1 is then scaled by the stakes:
 
 - **Sweep bonus**: if either side wins all 8 tricks, the change is doubled.
-- **Pass-double**: doubles the change; a **redouble** takes it to ×4.
+- **Double**: doubles the change; a **redouble** takes it to ×4.
 - These stack, but a single round can never swing more than **±4** game points.
 
 A team wins the match by reaching **±6 game points**.

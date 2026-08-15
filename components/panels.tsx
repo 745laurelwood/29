@@ -39,7 +39,7 @@ export function HUD({
 
   const bidder = state.bidWinner >= 0 ? state.players[state.bidWinner] : null;
   const stakeMultiplier = getStakeMultiplier({
-    doubled: state.passDoubledBy >= 0,
+    doubled: state.doubledBy >= 0,
     redoubled: state.redoubledBy >= 0,
   });
   const showTrumpToMe = !!(state.trumpSuit && (state.trumpRevealed || myIndex === state.bidWinner));
@@ -325,15 +325,13 @@ export function RoyalsOverlay({ playerName, adjustment }: { playerName: string; 
   );
 }
 
-/** Bidding controls: tappable number chips (scrollable) + gavel (bid) + X (pass) + optional "Pass x2". */
+/** Bidding controls: tappable number chips (scrollable) + gavel (bid) + X (pass). */
 export function BiddingControls({
-  minBidAmount, onBid, onPass, onPassDouble, canPassDouble, disabled,
+  minBidAmount, onBid, onPass, disabled,
 }: {
   minBidAmount: number;
   onBid: (amount: number) => void;
   onPass: () => void;
-  onPassDouble?: () => void;
-  canPassDouble?: boolean;
   disabled?: boolean;
 }) {
   // No default selection. A chip only becomes "selected" (blue) when the
@@ -489,32 +487,6 @@ export function BiddingControls({
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
       </button>
-
-      {/* Pass & double — opposing-team passer doubles the round's stakes. */}
-      {onPassDouble && (
-        <button
-          onClick={onPassDouble}
-          disabled={!canPassDouble}
-          title="Pass and double the round's game points"
-          aria-label="Pass and double"
-          className={`rounded-2xl flex items-center justify-center font-display tabular-nums transition-all active:scale-[0.96] ${
-            !canPassDouble ? 'cursor-not-allowed opacity-50' : 'hover:brightness-110'
-          }`}
-          style={{
-            paddingLeft: 12,
-            paddingRight: 12,
-            height: 52,
-            fontSize: '0.95rem',
-            fontWeight: 600,
-            background: 'rgba(232,146,154,0.18)',
-            color: 'var(--red)',
-            border: '1px solid rgba(232,146,154,0.55)',
-            letterSpacing: '0.04em',
-          }}
-        >
-          x2
-        </button>
-      )}
     </div>
   );
 }
