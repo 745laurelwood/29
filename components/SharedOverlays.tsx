@@ -1,5 +1,5 @@
 import React from 'react';
-import { CardComponent } from './CardComponent';
+import { CardComponent } from '@laurelwood/card-class';
 import { RoyalsOverlay } from './panels';
 import { useGame } from '../GameContext';
 import { SUIT_SYMBOLS, compareSuitForHand } from '../constants';
@@ -149,7 +149,7 @@ export const SharedOverlays: React.FC = () => {
             </p>
             <div className="flex justify-center mb-5">
               {/* Distinct flipId: this card is also rendered in the hand below,
-                  and utils/flip.ts keys on data-card-id keeping only the first
+                  and flipTransition keys on data-card-id keeping only the first
                   match — sharing an id here corrupts card-flight animations. */}
               <CardComponent card={seventhCard} flipId={`seventh-${seventhCard.id}`} />
             </div>
