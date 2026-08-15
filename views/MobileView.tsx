@@ -192,7 +192,7 @@ export const MobileView: React.FC = () => {
   // shows trump before the public reveal.
   const mySeventhCardId = myHiddenTrumpCardId;
   const stakeMultiplier = getStakeMultiplier({
-    doubled: state.passDoubledBy >= 0,
+    doubled: state.doubledBy >= 0,
     redoubled: state.redoubledBy >= 0,
   });
 
@@ -386,7 +386,7 @@ export const MobileView: React.FC = () => {
           </div>
           {canRevealTrump ? (
             <RevealTrumpButton onClick={executeRevealTrump} forced={mustRevealTrump} />
-          ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING' || state.gamePhase === 'REDOUBLING') ? (
+          ) : state.gameLog.length > 0 && (state.gamePhase === 'PLAYING' || state.gamePhase === 'BIDDING' || state.gamePhase === 'DOUBLING' || state.gamePhase === 'REDOUBLING') ? (
             <LastMoveBanner message={state.gameLog[state.gameLog.length - 1]} />
           ) : null}
         </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   MIN_BID, MAX_BID, ROYALS_ADJUSTMENT, WINNING_GAME_POINTS, SEVENTH_CARD_INDEX,
-  REDOUBLE_MULTIPLIER, MAX_GAME_POINT_DELTA,
+  DOUBLE_MULTIPLIER, REDOUBLE_MULTIPLIER, MAX_GAME_POINT_DELTA,
 } from '../rules';
 
 interface RulebookProps {
@@ -112,6 +112,7 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
             <li>Four cards are dealt face-down to each player.</li>
             <li>Players bid on the strength of their four-card hand.</li>
             <li>The bid winner chooses a trump suit secretly &mdash; or calls seventh card.</li>
+            <li>The defenders may double, and the bidding side may redouble in reply.</li>
             <li>The dealer then deals four more cards to each player so everyone now has eight.</li>
           </ol>
         </section>
@@ -120,7 +121,7 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
           <h2 className="font-display text-xl sm:text-2xl mb-3" style={{ color: 'var(--fg)' }}>Seventh Card</h2>
           <p style={{ color: 'var(--fg-soft)' }}>
             A bid winner holding no obvious trump suit may call <strong>seventh card</strong> instead of
-            naming one. The rest of the deal is completed and the suit of the{' '}
+            naming one. The deal is completed once the stakes are settled, and the suit of the{' '}
             <strong>{SEVENTH_CARD_INDEX + 1}th card in their hand</strong> becomes trump &mdash; whatever
             it turns out to be. It is a genuine gamble: the choice is made sight unseen and cannot be
             taken back.
@@ -149,18 +150,24 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
             winning bidder undertakes that their side will capture at least the bid number of points in
             the round.
           </p>
-          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
-            <strong>Pass &amp; double:</strong> a player on the team opposite the current high bidder may
-            instead choose to <em>pass-double</em>. This ends the auction immediately — even if other
-            players have not yet bid — and doubles the round's game-point change. The bidding side
-            scores <strong>+2</strong> if they make the bid, or <strong>-2</strong> if they miss it.
+        </section>
+
+        <section className="mb-8">
+          <h2 className="font-display text-xl sm:text-2xl mb-3" style={{ color: 'var(--fg)' }}>Doubling and Redoubling</h2>
+          <p className="mb-3" style={{ color: 'var(--fg-soft)' }}>
+            The stakes are settled after the bid winner has set trump and before the last four cards
+            go out, so every decision is made on four cards, knowing a trump exists but not which
+            suit it is.
           </p>
-          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
-            <strong>Redouble:</strong> the bidding side may answer a pass-double. Before trump is
-            chosen, either the bid winner <em>or their partner</em> may <em>redouble</em>, taking the
-            round to <strong>+/-{REDOUBLE_MULTIPLIER}</strong> game points. Whoever redoubles first commits the team,
-            and the decision is made on the first four cards alone — nobody has seen trump or the rest
-            of their hand yet. If both decline, the stake stays doubled.
+          <p className="mb-3" style={{ color: 'var(--fg-soft)' }}>
+            <strong>Double:</strong> either defender may <em>double</em>, taking the round to{' '}
+            <strong>+/-{DOUBLE_MULTIPLIER}</strong> game points. Whoever doubles first commits their side, and the
+            window closes once both have declined.
+          </p>
+          <p style={{ color: 'var(--fg-soft)' }}>
+            <strong>Redouble:</strong> the bidding side may answer. Either the bid winner <em>or their
+            partner</em> may <em>redouble</em>, taking the round to <strong>+/-{REDOUBLE_MULTIPLIER}</strong> game
+            points. Whoever redoubles first commits the team. If both decline, the stake stays doubled.
           </p>
         </section>
 
@@ -211,7 +218,7 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
             is doubled. The bidding side scores <strong>+2</strong> if they sweep, or <strong>-2</strong> if the non-bidding side does.
           </p>
           <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
-            These stack: a sweep after a pass-double makes the change <strong>+/-4</strong>, and a
+            These stack: a sweep after a double makes the change <strong>+/-4</strong>, and a
             redouble does the same on its own. However much they combine, a single round can never
             swing more than <strong>+/-{MAX_GAME_POINT_DELTA}</strong> game points.
           </p>

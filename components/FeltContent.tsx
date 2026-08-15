@@ -7,15 +7,87 @@ import {
   SUIT_SYMBOLS, SUIT_COLORS,
   TEAM_LABELS, TEAM_TEXT_COLORS,
 } from '../constants';
-import { SUIT_NAMES, NUM_TRICKS, REDOUBLE_MULTIPLIER, getGamePointMagnitude } from '../rules';
+import { SUIT_NAMES, NUM_TRICKS, DOUBLE_MULTIPLIER, REDOUBLE_MULTIPLIER, getGamePointMagnitude } from '../rules';
 import { clearSession } from '../utils/session';
 
-/** Felt contents — bidding / trump choice / current-trick cards. */
+/**
+ * The two stakes windows between trump selection and the second deal have the
+ * same shape: a heading, a line about the contract, then either the pair of
+ * buttons or the names of whoever is still deciding.
+ */
+const StakesPrompt: React.FC<{
+  phaseLabel: string;
+  headline: React.ReactNode;
+  canAct: boolean;
+  blurb: string;
+  actionLabel: string;
+  onAccept: () => void;
+  onDecline: () => void;
+  undecidedNames: string[];
+  waitingVerb: string;
+}> = ({
+  phaseLabel, headline, canAct, blurb, actionLabel,
+  onAccept, onDecline, undecidedNames, waitingVerb,
+}) => (
+  <div className="flex flex-col items-center gap-4 px-4 max-w-md w-full">
+    <div className="text-xs sm:text-sm uppercase tracking-[0.2em]" style={{ color: 'var(--dim)' }}>
+      {phaseLabel}
+    </div>
+    {headline && (
+      <div className="text-base sm:text-lg font-display text-center" style={{ color: 'var(--fg)' }}>
+        {headline}
+      </div>
+    )}
+    {canAct ? (
+      <>
+        <div className="text-xs sm:text-sm text-center" style={{ color: 'var(--fg-soft)' }}>
+          {blurb}
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onDecline}
+            className="rounded-2xl px-5 h-[52px] font-display transition-all active:scale-[0.96] hover:brightness-110"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              color: 'var(--fg-soft)',
+              border: '1px solid var(--line)',
+            }}
+          >
+            No thanks
+          </button>
+          <button
+            onClick={onAccept}
+            title={blurb}
+            className="rounded-2xl px-5 h-[52px] font-display tabular-nums transition-all active:scale-[0.96] hover:brightness-110"
+            style={{
+              background: 'rgba(232,146,154,0.18)',
+              color: 'var(--red)',
+              border: '1px solid rgba(232,146,154,0.55)',
+              letterSpacing: '0.04em',
+              fontWeight: 600,
+            }}
+          >
+            {actionLabel}
+          </button>
+        </div>
+      </>
+    ) : (
+      <div className="text-sm animate-pulse text-center" style={{ color: 'var(--fg-soft)' }}>
+        {undecidedNames.length > 0
+          ? `${undecidedNames.join(' and ')} deciding whether to ${waitingVerb}...`
+          : 'Waiting...'}
+      </div>
+    )}
+  </div>
+);
+
+/** Felt contents — bidding / trump choice / stakes / current-trick cards. */
 export const FeltContent: React.FC = () => {
   const {
     state, myIndex, isHost, isSpectator, handleDispatch,
     canChooseTrump, executeChooseTrump, executeDeclareSeventhCard,
-    canBid, canPassDouble, minBidAmount, executeBid, executePass, executePassDouble,
+    canBid, minBidAmount, executeBid, executePass,
+    canDouble, executeDouble, executeDeclineDouble,
     canRedouble, executeRedouble, executeDeclineRedouble,
     leftPlayer, rightPlayer, topPlayer, bottomPlayer,
   } = useGame();
@@ -102,10 +174,10 @@ export const FeltContent: React.FC = () => {
       state.players.filter(p => p.team === team).reduce((sum, p) => sum + p.tricksWon, 0),
     );
     const sweepTeam = teamTricks[0] === NUM_TRICKS ? 0 : teamTricks[1] === NUM_TRICKS ? 1 : -1;
-    const doubler = state.players[state.passDoubledBy];
+    const doubler = state.players[state.doubledBy];
     const redoubler = state.players[state.redoubledBy];
     const magnitude = getGamePointMagnitude({
-      doubled: state.passDoubledBy >= 0,
+      doubled: state.doubledBy >= 0,
       redoubled: state.redoubledBy >= 0,
       swept: sweepTeam >= 0,
     });
@@ -131,7 +203,7 @@ export const FeltContent: React.FC = () => {
           )}
           {doubler && (
             <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--red)' }}>
-              {doubler.name} passed &amp; doubled
+              {doubler.name} doubled
             </div>
           )}
           {redoubler && (
@@ -204,8 +276,6 @@ export const FeltContent: React.FC = () => {
             minBidAmount={minBidAmount}
             onBid={executeBid}
             onPass={executePass}
-            onPassDouble={executePassDouble}
-            canPassDouble={canPassDouble}
             disabled={!canBid}
           />
         </div>
@@ -243,66 +313,6 @@ export const FeltContent: React.FC = () => {
             );
           })}
         </div>
-      </div>
-    );
-  }
-
-  // ── REDOUBLING: the bidding team answers a pass-double ──
-  if (state.gamePhase === 'REDOUBLING') {
-    const doubler = state.players[state.passDoubledBy];
-    const bidder = state.players[state.bidWinner];
-    const undecided = bidder
-      ? state.players.filter(p => p.team === bidder.team && !state.redoubleDeclinedBy.includes(p.id))
-      : [];
-    return (
-      <div className="flex flex-col items-center gap-4 px-4 max-w-md w-full">
-        <div className="text-xs sm:text-sm uppercase tracking-[0.2em]" style={{ color: 'var(--dim)' }}>Doubled</div>
-        {doubler && (
-          <div className="text-base sm:text-lg font-display text-center" style={{ color: 'var(--fg)' }}>
-            <span className={TEAM_TEXT_COLORS[doubler.team]}>{doubler.name}</span>
-            <span> passed &amp; doubled</span>
-          </div>
-        )}
-        {canRedouble ? (
-          <>
-            <div className="text-xs sm:text-sm text-center" style={{ color: 'var(--fg-soft)' }}>
-              Redouble to take the round to x{REDOUBLE_MULTIPLIER} game points — win or lose.
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={executeDeclineRedouble}
-                className="rounded-2xl px-5 h-[52px] font-display transition-all active:scale-[0.96] hover:brightness-110"
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  color: 'var(--fg-soft)',
-                  border: '1px solid var(--line)',
-                }}
-              >
-                No thanks
-              </button>
-              <button
-                onClick={executeRedouble}
-                title={`Redouble — round game points x${REDOUBLE_MULTIPLIER}`}
-                className="rounded-2xl px-5 h-[52px] font-display tabular-nums transition-all active:scale-[0.96] hover:brightness-110"
-                style={{
-                  background: 'rgba(232,146,154,0.18)',
-                  color: 'var(--red)',
-                  border: '1px solid rgba(232,146,154,0.55)',
-                  letterSpacing: '0.04em',
-                  fontWeight: 600,
-                }}
-              >
-                Redouble x{REDOUBLE_MULTIPLIER}
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="text-sm animate-pulse text-center" style={{ color: 'var(--fg-soft)' }}>
-            {undecided.length > 0
-              ? `${undecided.map(p => p.name).join(' and ')} deciding whether to redouble...`
-              : 'Waiting...'}
-          </div>
-        )}
       </div>
     );
   }
@@ -369,6 +379,59 @@ export const FeltContent: React.FC = () => {
           </div>
         )}
       </div>
+    );
+  }
+
+  // ── DOUBLING: the defenders answer a settled contract, still on four cards ──
+  if (state.gamePhase === 'DOUBLING') {
+    const bidder = state.players[state.bidWinner];
+    const undecided = bidder
+      ? state.players.filter(p => p.team !== bidder.team && !state.doubleDeclinedBy.includes(p.id))
+      : [];
+    return (
+      <StakesPrompt
+        phaseLabel="Stakes"
+        headline={bidder && (
+          <>
+            <span className={TEAM_TEXT_COLORS[bidder.team]}>{bidder.name}</span>
+            <span> bid {state.bidValue} and {state.seventhCardCalled ? 'called seventh card' : 'named trump'}</span>
+          </>
+        )}
+        canAct={canDouble}
+        blurb={`Double to take the round to x${DOUBLE_MULTIPLIER} game points — win or lose.`}
+        actionLabel={`Double x${DOUBLE_MULTIPLIER}`}
+        onAccept={executeDouble}
+        onDecline={executeDeclineDouble}
+        undecidedNames={undecided.map(p => p.name)}
+        waitingVerb="double"
+      />
+    );
+  }
+
+  // ── REDOUBLING: the bidding team answers a double ──
+  if (state.gamePhase === 'REDOUBLING') {
+    const doubler = state.players[state.doubledBy];
+    const bidder = state.players[state.bidWinner];
+    const undecided = bidder
+      ? state.players.filter(p => p.team === bidder.team && !state.redoubleDeclinedBy.includes(p.id))
+      : [];
+    return (
+      <StakesPrompt
+        phaseLabel="Doubled"
+        headline={doubler && (
+          <>
+            <span className={TEAM_TEXT_COLORS[doubler.team]}>{doubler.name}</span>
+            <span> doubled</span>
+          </>
+        )}
+        canAct={canRedouble}
+        blurb={`Redouble to take the round to x${REDOUBLE_MULTIPLIER} game points — win or lose.`}
+        actionLabel={`Redouble x${REDOUBLE_MULTIPLIER}`}
+        onAccept={executeRedouble}
+        onDecline={executeDeclineRedouble}
+        undecidedNames={undecided.map(p => p.name)}
+        waitingVerb="redouble"
+      />
     );
   }
 

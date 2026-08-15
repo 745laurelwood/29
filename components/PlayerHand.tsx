@@ -140,8 +140,9 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
             && state.gamePhase !== 'GAME_OVER'
             && state.gamePhase !== 'ROUND_OVER'
             && state.gamePhase !== 'BIDDING'
-            && state.gamePhase !== 'REDOUBLING'
-            && state.gamePhase !== 'CHOOSING_TRUMP';
+            && state.gamePhase !== 'CHOOSING_TRUMP'
+            && state.gamePhase !== 'DOUBLING'
+            && state.gamePhase !== 'REDOUBLING';
           const emptyPlaceholder = (
             <div
               className="w-14 h-20 sm:w-16 sm:h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-lg flex items-center justify-center text-xs"

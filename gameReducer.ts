@@ -1,4 +1,4 @@
-import { Card, ChatMessage, GamePhase, GameState, Player, Spectator, Suit, CompletedTrick } from './types';
+import { Card, ChatMessage, GameState, Player, Spectator, Suit, CompletedTrick } from './types';
 import { createDeck, shuffleDeck } from './utils/deck';
 import { getTrickWinner, cardPoints } from './utils/gameLogic';
 import {
@@ -12,7 +12,7 @@ import {
   ROYALS_ADJUSTMENT, hasRoyals,
   WINNING_GAME_POINTS,
   SUIT_NAMES,
-  REDOUBLE_MULTIPLIER, getGamePointMagnitude,
+  DOUBLE_MULTIPLIER, REDOUBLE_MULTIPLIER, getGamePointMagnitude,
 } from './rules';
 
 export type Action =
@@ -25,12 +25,12 @@ export type Action =
   | { type: 'START_ROUND' }
   | { type: 'PLACE_BID'; payload: { playerIndex: number; amount: number } }
   | { type: 'PASS_BID'; payload: { playerIndex: number } }
-  | { type: 'PASS_BID_DOUBLE'; payload: { playerIndex: number } }
-  | { type: 'REDOUBLE'; payload: { playerIndex: number } }
-  | { type: 'DECLINE_REDOUBLE'; payload: { playerIndex: number } }
   | { type: 'CHOOSE_TRUMP'; payload: { suit: Suit } }
   | { type: 'DECLARE_SEVENTH_CARD'; payload: { playerIndex: number } }
-  | { type: 'DEAL_REMAINING' }
+  | { type: 'DOUBLE'; payload: { playerIndex: number } }
+  | { type: 'DECLINE_DOUBLE'; payload: { playerIndex: number } }
+  | { type: 'REDOUBLE'; payload: { playerIndex: number } }
+  | { type: 'DECLINE_REDOUBLE'; payload: { playerIndex: number } }
   | { type: 'PLAY_CARD'; payload: { playerIndex: number; cardId: string } }
   | { type: 'REVEAL_TRUMP'; payload: { playerIndex: number } }
   | { type: 'DECLARE_ROYALS'; payload: { playerIndex: number } }
@@ -58,7 +58,8 @@ export const INITIAL_STATE: GameState = {
   pairActive: false,
   pairPriority: -1,
   pairChallenger: -1,
-  passDoubledBy: -1,
+  doubledBy: -1,
+  doubleDeclinedBy: [],
   redoubledBy: -1,
   redoubleDeclinedBy: [],
 
@@ -66,6 +67,7 @@ export const INITIAL_STATE: GameState = {
   bidValue: 0,
   trumpSuit: null,
   trumpChooser: -1,
+  seventhCardCalled: false,
   seventhCardId: null,
   trumpRevealed: false,
   revealedAtTrick: -1,
@@ -267,13 +269,15 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         pairActive: false,
         pairPriority: -1,
         pairChallenger: -1,
-        passDoubledBy: -1,
+        doubledBy: -1,
+        doubleDeclinedBy: [],
         redoubledBy: -1,
         redoubleDeclinedBy: [],
         bidWinner: -1,
         bidValue: 0,
         trumpSuit: null,
         trumpChooser: -1,
+        seventhCardCalled: false,
         seventhCardId: null,
         trumpRevealed: false,
         revealedAtTrick: -1,
@@ -417,98 +421,16 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       return { ...nextState, biddingTurn: next };
     }
 
-    case 'PASS_BID_DOUBLE': {
-      const { playerIndex } = action.payload;
-      if (state.gamePhase !== 'BIDDING') return state;
-      if (state.biddingTurn !== playerIndex) return state;
-      if (state.passedPlayers.includes(playerIndex)) return state;
-      if (state.currentBid == null || state.highBidder < 0) return state;
-      const passer = state.players[playerIndex];
-      const bidder = state.players[state.highBidder];
-      if (!passer || !bidder) return state;
-      // Only an opposing-team player may pass-double.
-      if (passer.team === bidder.team) return state;
-
-      const newLastBids = [...state.lastBids];
-      newLastBids[playerIndex] = 'pass';
-      const log = logPush(
-        state.gameLog,
-        `${passer.name} passes & doubles — round game points x2`,
-      );
-      return finalizeAuction({
-        ...state,
-        passedPlayers: [...state.passedPlayers, playerIndex],
-        lastBids: newLastBids,
-        passDoubledBy: playerIndex,
-        biddingTurn: state.highBidder,
-        gameLog: log,
-      }, 'REDOUBLING');
-    }
-
-    case 'REDOUBLE': {
-      const { playerIndex } = action.payload;
-      if (state.gamePhase !== 'REDOUBLING') return state;
-      if (state.redoubledBy >= 0) return state;
-      const actor = state.players[playerIndex];
-      const bidder = state.players[state.bidWinner];
-      if (!actor || !bidder) return state;
-      // Only the bid winner or their partner may answer a pass-double.
-      if (actor.team !== bidder.team) return state;
-
-      return {
-        ...state,
-        redoubledBy: playerIndex,
-        gamePhase: 'CHOOSING_TRUMP',
-        gameLog: logPush(
-          state.gameLog,
-          `${actor.name} redoubles — round game points x${REDOUBLE_MULTIPLIER}`,
-        ),
-      };
-    }
-
-    case 'DECLINE_REDOUBLE': {
-      const { playerIndex } = action.payload;
-      if (state.gamePhase !== 'REDOUBLING') return state;
-      if (state.redoubleDeclinedBy.includes(playerIndex)) return state;
-      const actor = state.players[playerIndex];
-      const bidder = state.players[state.bidWinner];
-      if (!actor || !bidder) return state;
-      if (actor.team !== bidder.team) return state;
-
-      // One decline doesn't close the window — the partner still gets their say.
-      const declined = [...state.redoubleDeclinedBy, playerIndex];
-      const teamSize = state.players.filter(p => p.team === bidder.team).length;
-      if (declined.length < teamSize) {
-        return { ...state, redoubleDeclinedBy: declined };
-      }
-      return {
-        ...state,
-        redoubleDeclinedBy: declined,
-        gamePhase: 'CHOOSING_TRUMP',
-      };
-    }
-
     case 'CHOOSE_TRUMP': {
       if (state.gamePhase !== 'CHOOSING_TRUMP') return state;
       if (state.bidWinner < 0) return state;
       const chooser = state.players[state.bidWinner];
-      return {
+      return openStakesWindow({
         ...state,
         trumpSuit: action.payload.suit,
         trumpChooser: state.bidWinner,
-        gamePhase: 'PLAYING',
-        currentTurn: state.bidWinner,
-        trickLeader: state.bidWinner,
-        ledSuit: null,
-        currentTrick: [],
         gameLog: logPush(state.gameLog, `${chooser.name} chose trump`),
-      };
-    }
-
-    case 'DEAL_REMAINING': {
-      if (state.gamePhase !== 'PLAYING') return state;
-      if (state.deck.length === 0) return state;
-      return dealRemaining(state);
+      });
     }
 
     case 'DECLARE_SEVENTH_CARD': {
@@ -520,25 +442,94 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       const chooser = state.players[state.bidWinner];
       if (!chooser) return state;
 
-      // The 7th card only exists once the deal is finished, so complete it here
-      // rather than leaving it to the DEAL_REMAINING that follows CHOOSE_TRUMP.
-      const dealt = dealRemaining(state);
-      const seventh = dealt.players[state.bidWinner].hand[SEVENTH_CARD_INDEX];
-      if (!seventh) return state;
-
-      return {
-        ...dealt,
-        trumpSuit: seventh.suit,
+      // Only the call is recorded here. The 7th card doesn't exist until the
+      // deal is finished, and the deal waits for the stakes window — otherwise
+      // the bidder would be sitting on a known trump suit while the defenders
+      // decide whether to double.
+      return openStakesWindow({
+        ...state,
         trumpChooser: state.bidWinner,
-        seventhCardId: seventh.id,
-        gamePhase: 'PLAYING',
-        currentTurn: state.bidWinner,
-        trickLeader: state.bidWinner,
-        ledSuit: null,
-        currentTrick: [],
+        seventhCardCalled: true,
         // Deliberately suit-free, like the `chose trump` line — every player sees this.
         gameLog: logPush(state.gameLog, `${chooser.name} called seventh card`),
+      });
+    }
+
+    case 'DOUBLE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'DOUBLING') return state;
+      if (state.doubledBy >= 0) return state;
+      if (state.doubleDeclinedBy.includes(playerIndex)) return state;
+      const actor = state.players[playerIndex];
+      const bidder = state.players[state.bidWinner];
+      if (!actor || !bidder) return state;
+      // Only a defender may double.
+      if (actor.team === bidder.team) return state;
+
+      return {
+        ...state,
+        doubledBy: playerIndex,
+        gamePhase: 'REDOUBLING',
+        gameLog: logPush(
+          state.gameLog,
+          `${actor.name} doubles — round game points x${DOUBLE_MULTIPLIER}`,
+        ),
       };
+    }
+
+    case 'DECLINE_DOUBLE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'DOUBLING') return state;
+      if (state.doubleDeclinedBy.includes(playerIndex)) return state;
+      const actor = state.players[playerIndex];
+      const bidder = state.players[state.bidWinner];
+      if (!actor || !bidder) return state;
+      if (actor.team === bidder.team) return state;
+
+      // One decline doesn't close the window — the partner still gets their say.
+      const declined = [...state.doubleDeclinedBy, playerIndex];
+      const defenders = state.players.filter(p => p.team !== bidder.team).length;
+      if (declined.length < defenders) {
+        return { ...state, doubleDeclinedBy: declined };
+      }
+      return beginPlay({ ...state, doubleDeclinedBy: declined });
+    }
+
+    case 'REDOUBLE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'REDOUBLING') return state;
+      if (state.redoubledBy >= 0) return state;
+      const actor = state.players[playerIndex];
+      const bidder = state.players[state.bidWinner];
+      if (!actor || !bidder) return state;
+      // Only the bid winner or their partner may answer a double.
+      if (actor.team !== bidder.team) return state;
+
+      return beginPlay({
+        ...state,
+        redoubledBy: playerIndex,
+        gameLog: logPush(
+          state.gameLog,
+          `${actor.name} redoubles — round game points x${REDOUBLE_MULTIPLIER}`,
+        ),
+      });
+    }
+
+    case 'DECLINE_REDOUBLE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'REDOUBLING') return state;
+      if (state.redoubleDeclinedBy.includes(playerIndex)) return state;
+      const actor = state.players[playerIndex];
+      const bidder = state.players[state.bidWinner];
+      if (!actor || !bidder) return state;
+      if (actor.team !== bidder.team) return state;
+
+      const declined = [...state.redoubleDeclinedBy, playerIndex];
+      const teamSize = state.players.filter(p => p.team === bidder.team).length;
+      if (declined.length < teamSize) {
+        return { ...state, redoubleDeclinedBy: declined };
+      }
+      return beginPlay({ ...state, redoubleDeclinedBy: declined });
     }
 
     case 'PLAY_CARD': {
@@ -723,7 +714,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
             ? 1 - bidderTeam
             : -1;
       const magnitude = getGamePointMagnitude({
-        doubled: state.passDoubledBy >= 0,
+        doubled: state.doubledBy >= 0,
         redoubled: state.redoubledBy >= 0,
         swept: sweepTeam >= 0,
       });
@@ -814,11 +805,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
 // Helpers
 // ============================================================
 
-/**
- * Tops every hand up to HAND_SIZE_FULL from the deck. Phase-agnostic: callers
- * decide when dealing is legal. `seventh card` needs it during CHOOSING_TRUMP,
- * while DEAL_REMAINING only runs once play has started.
- */
+/** Tops every hand up to HAND_SIZE_FULL from the deck. */
 function dealRemaining(state: GameState): GameState {
   const deck = [...state.deck];
   const players = state.players.map(p => {
@@ -829,12 +816,12 @@ function dealRemaining(state: GameState): GameState {
   return { ...state, players, deck };
 }
 
-function finalizeAuction(state: GameState, nextPhase: GamePhase = 'CHOOSING_TRUMP'): GameState {
+function finalizeAuction(state: GameState): GameState {
   if (state.highBidder < 0 || state.currentBid == null) return state;
   const winner = state.players[state.highBidder];
   return {
     ...state,
-    gamePhase: nextPhase,
+    gamePhase: 'CHOOSING_TRUMP',
     bidWinner: state.highBidder,
     bidValue: state.currentBid,
     currentTurn: state.highBidder,
@@ -842,5 +829,39 @@ function finalizeAuction(state: GameState, nextPhase: GamePhase = 'CHOOSING_TRUM
       state.gameLog,
       `${winner.name} won the bid at ${state.currentBid}`,
     ),
+  };
+}
+
+/**
+ * Hands the contract to the defenders once trump is set. They double or decline
+ * on four cards, knowing only that a trump exists. A table with no defenders
+ * can't happen in a seated 2v2 round, but the guard keeps the helper total.
+ */
+function openStakesWindow(state: GameState): GameState {
+  const bidderTeam = state.players[state.bidWinner]?.team;
+  const hasDefenders = state.players.some(p => p.team !== bidderTeam);
+  return hasDefenders ? { ...state, gamePhase: 'DOUBLING' } : beginPlay(state);
+}
+
+/**
+ * Closes the stakes window: the last four cards go out, a seventh-card call
+ * resolves against the finished hand, and the bid winner leads. Dealing here
+ * rather than at trump selection is what keeps the double honest — nobody has
+ * seen a fifth card when the stake is agreed.
+ */
+function beginPlay(state: GameState): GameState {
+  const dealt = dealRemaining(state);
+  const seventh = state.seventhCardCalled
+    ? dealt.players[state.bidWinner]?.hand[SEVENTH_CARD_INDEX]
+    : undefined;
+  return {
+    ...dealt,
+    trumpSuit: seventh ? seventh.suit : dealt.trumpSuit,
+    seventhCardId: seventh ? seventh.id : dealt.seventhCardId,
+    gamePhase: 'PLAYING',
+    currentTurn: state.bidWinner,
+    trickLeader: state.bidWinner,
+    ledSuit: null,
+    currentTrick: [],
   };
 }
