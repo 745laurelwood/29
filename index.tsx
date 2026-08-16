@@ -2,8 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// The shared skin: tokens, felt, panels, desktop grid and mobile layout.
+// The shared skin, then 29's overrides on top. Order matters: both style the
+// same classes, and the later stylesheet wins.
 import '@laurelwood/card-class/styles.css';
+import './styles/nine.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

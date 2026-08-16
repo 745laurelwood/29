@@ -1,0 +1,14 @@
+/* 29's deltas on top of @laurelwood/card-class. Imported after the package
+   stylesheet so these win: same specificity, later wins.
+
+   Only the felt's trump tiles are 29's own. The package compacts what it
+   ships on short viewports; these two follow the same breakpoints. */
+
+@media (max-height: 820px) {
+  .trump-tile  { height: 5.5rem !important; }
+  .trump-glyph { font-size: 2.5rem !important; line-height: 1 !important; }
+}
+@media (max-height: 680px) {
+  .trump-tile  { height: 4.5rem !important; }
+  .trump-glyph { font-size: 2rem !important; line-height: 1 !important; }
+}
