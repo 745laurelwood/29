@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@laurelwood/card-class": "github:745laurelwood/card-class#v0.5.0",
     "mqtt": "^5.10.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

@@ -1,24 +1,11 @@
-export enum Suit {
-  Spades = 'S',
-  Hearts = 'H',
-  Clubs = 'C',
-  Diamonds = 'D',
-}
+// The card vocabulary is shared across every game in the org, so it lives in
+// the skin package. Re-exported here so the rest of this codebase keeps
+// importing its types from one place.
+// In 29 a rank is 1 (Ace), 7, 8, 9, 10, 11 (J), 12 (Q) or 13 (K).
+export { Suit } from '@laurelwood/card-class';
+export type { Card, ChatMessage } from '@laurelwood/card-class';
 
-export interface Card {
-  suit: Suit;
-  rank: number; // 1 (Ace), 7, 8, 9, 10, 11 (J), 12 (Q), 13 (K)
-  id: string;
-}
-
-export interface ChatMessage {
-  id: string;          // unique id: `${ts}-${random}`
-  playerIndex: number; // sender's player index at send time
-  name: string;        // snapshot of sender's name
-  team: 0 | 1;         // snapshot of sender's team, for tint
-  text: string;        // trimmed, <= CHAT_MAX_LEN chars
-  ts: number;          // Date.now() at send
-}
+import type { Card, ChatMessage, Suit } from '@laurelwood/card-class';
 
 export interface TrickPlay {
   playerIndex: number;

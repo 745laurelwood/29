@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import mqtt from 'mqtt';
 import { Card, ChatMessage, CompletedTrick, GameState, Player, Spectator, Suit } from './types';
 import { sounds } from './utils/sound';
-import { flipTransition } from './utils/flip';
+import { flipTransition } from '@laurelwood/card-class';
 import { loadSession, saveSession, clearSession, SavedSession } from './utils/session';
 import {
   ROYALS_ANIM_DURATION_MS, AI_BID_DELAY_MS, AI_STAKES_DELAY_MS, AI_TRUMP_DELAY_MS, AI_PLAY_DELAY_MS, TRICK_REVEAL_DELAY_MS,

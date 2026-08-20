@@ -1,52 +1,20 @@
+import { createSessionStore } from '@laurelwood/card-class';
+import type { SavedSession as SharedSavedSession } from '@laurelwood/card-class';
 import type { GameState } from '../types';
 
-const KEY = 'nine_session_v1';
-const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+/**
+ * Reconnect memory. The store itself is shared; what belongs to 29 is the
+ * storage key and what counts as a state this build can still load.
+ */
+const store = createSessionStore<GameState>({
+  key: 'nine_session_v1',
+  isValidState: s => Array.isArray(s.players) && !!s.gamePhase,
+});
 
-type Timestamped<T> = T & { savedAt: number };
+export type SavedSession = SharedSavedSession<GameState>;
+export type HostSession = Extract<SavedSession, { role: 'host' }>;
+export type ClientSession = Extract<SavedSession, { role: 'client' }>;
 
-export type HostSession = { role: 'host'; roomId: string; playerName: string; state: GameState };
-export type ClientSession = { role: 'client'; roomId: string; playerName: string; myPeerId: string };
-export type SavedSession = Timestamped<HostSession> | Timestamped<ClientSession>;
-
-export const saveSession = (session: HostSession | ClientSession) => {
-  try {
-    localStorage.setItem(KEY, JSON.stringify({ ...session, savedAt: Date.now() }));
-  } catch {}
-};
-
-const isValidSession = (s: any): s is SavedSession => {
-  if (!s || typeof s !== 'object') return false;
-  if (typeof s.savedAt !== 'number' || typeof s.roomId !== 'string' || typeof s.playerName !== 'string') return false;
-  if (s.role === 'host') {
-    return !!s.state && typeof s.state === 'object' && Array.isArray(s.state.players) && !!s.state.gamePhase;
-  }
-  if (s.role === 'client') {
-    return typeof s.myPeerId === 'string';
-  }
-  return false;
-};
-
-export const loadSession = (): SavedSession | null => {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!isValidSession(parsed)) {
-      localStorage.removeItem(KEY);
-      return null;
-    }
-    if (Date.now() - parsed.savedAt > MAX_AGE_MS) {
-      localStorage.removeItem(KEY);
-      return null;
-    }
-    return parsed;
-  } catch {
-    try { localStorage.removeItem(KEY); } catch {}
-    return null;
-  }
-};
-
-export const clearSession = () => {
-  try { localStorage.removeItem(KEY); } catch {}
-};
+export const saveSession = store.save;
+export const loadSession = store.load;
+export const clearSession = store.clear;
