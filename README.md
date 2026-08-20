@@ -92,6 +92,12 @@ That ±1 is then scaled by the stakes:
 - **Double**: doubles the change; a **redouble** takes it to ×4.
 - These stack, but a single round can never swing more than **±4** game points.
 
+### Giving up
+
+At any point during play, a side may give up the round. It takes **both** of them: one player's offer stands until their partner matches it, and can be withdrawn until then, so nobody can hand the round away alone.
+
+The round is then scored as a loss for the side that gave up, at whatever stake was already agreed. A doubled round given up still costs double. No sweep bonus applies, since nobody swept anything.
+
 A team wins the match by reaching **±6 game points**.
 
 ## Run locally

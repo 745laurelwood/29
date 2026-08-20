@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChatRoom, Felt, LastMoveBanner, TableGrid } from '@laurelwood/card-class';
-import { HUD, RevealTrumpButton, TrumpBadge } from '../components/panels';
+import { ConcedeControl, HUD, RevealTrumpButton, TrumpBadge } from '../components/panels';
 import { FeltContent } from '../components/FeltContent';
 import { PlayerHand } from '../components/PlayerHand';
 import { SharedOverlays } from '../components/SharedOverlays';
@@ -13,8 +13,13 @@ export const DesktopView: React.FC = () => {
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,
     revealPhase,
     canRevealTrump, mustRevealTrump, executeRevealTrump,
+    canConcede, iOfferedToConcede, partnerOfferedToConcede, executeToggleConcede,
     chatUnread, markChatRead, sendChat,
   } = useGame();
+
+  const partner = state.players.find(
+    p => state.players[myIndex] && p.team === state.players[myIndex].team && p.id !== myIndex,
+  );
 
   const royalsName = state.royalsDeclared
     ? state.players[state.royalsDeclared.playerIndex]?.name
@@ -37,6 +42,16 @@ export const DesktopView: React.FC = () => {
         {/* No GameLog panel here on purpose — remembering past plays is part
             of the game. The component is in @laurelwood/card-class if this
             ever gets turned back on. */}
+        {canConcede && (
+          <div className="pointer-events-auto flex justify-end">
+            <ConcedeControl
+              offered={iOfferedToConcede}
+              partnerOffered={partnerOfferedToConcede}
+              partnerName={partner?.name}
+              onToggle={executeToggleConcede}
+            />
+          </div>
+        )}
       </div>
 
       <TableGrid

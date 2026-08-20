@@ -35,6 +35,7 @@ export type Action =
   | { type: 'REVEAL_TRUMP'; payload: { playerIndex: number } }
   | { type: 'DECLARE_ROYALS'; payload: { playerIndex: number } }
   | { type: 'SKIP_ROYALS'; payload: { playerIndex: number } }
+  | { type: 'TOGGLE_CONCEDE'; payload: { playerIndex: number } }
   | { type: 'COMPLETE_TRICK' }
   | { type: 'END_ROUND' }
   | { type: 'RETURN_TO_LOBBY'; payload: { playerIndex: number } }
@@ -82,6 +83,9 @@ export const INITIAL_STATE: GameState = {
   lastTrickWinner: -1,
 
   completedTricks: [],
+
+  concedeVotes: [],
+  concededBy: null,
 
   roundScores: { team0: 0, team1: 0 },
   totalScores: { team0: 0, team1: 0 },
@@ -290,6 +294,8 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         ledSuit: null,
         lastTrickWinner: -1,
         completedTricks: [],
+        concedeVotes: [],
+        concededBy: null,
         roundScores: { team0: 0, team1: 0 },
         gameLog: [`${players[firstBidder].name} bids first`],
       };
@@ -687,75 +693,42 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       };
     }
 
-    case 'END_ROUND': {
-      const teamCardPoints = [0, 1].map(team =>
-        state.players
-          .filter(p => p.team === team)
-          .reduce((sum, p) => sum + cardPoints(p.capturedCards), 0),
-      );
+    case 'TOGGLE_CONCEDE': {
+      const { playerIndex } = action.payload;
+      if (state.gamePhase !== 'PLAYING') return state;
+      const actor = state.players[playerIndex];
+      if (!actor) return state;
 
-      // Last-trick bonus
-      const lastWinnerIdx = state.lastTrickWinner;
-      if (lastWinnerIdx >= 0) {
-        const lastTeam = state.players[lastWinnerIdx].team;
-        teamCardPoints[lastTeam] += LAST_TRICK_POINT;
+      // A vote is withdrawable right up until the partner matches it, so an
+      // offer made in a bad moment isn't binding.
+      if (state.concedeVotes.includes(playerIndex)) {
+        return {
+          ...state,
+          concedeVotes: state.concedeVotes.filter(i => i !== playerIndex),
+          gameLog: logPush(state.gameLog, `${actor.name} is playing on after all`),
+        };
       }
 
-      const roundScores = { team0: teamCardPoints[0], team1: teamCardPoints[1] };
-
-      const bidderTeam = state.bidWinner >= 0 ? state.players[state.bidWinner].team : 0;
-      const target = state.bidValue + state.bidAdjustment;
-      const bidderTeamPoints = teamCardPoints[bidderTeam];
-      const bidderWon = bidderTeamPoints >= target;
-
-      const teamTricksWon = [0, 1].map(team =>
-        state.players.filter(p => p.team === team).reduce((sum, p) => sum + p.tricksWon, 0),
-      );
-      const sweepTeam =
-        teamTricksWon[bidderTeam] === NUM_TRICKS
-          ? bidderTeam
-          : teamTricksWon[1 - bidderTeam] === NUM_TRICKS
-            ? 1 - bidderTeam
-            : -1;
-      const magnitude = getGamePointMagnitude({
-        doubled: state.doubledBy >= 0,
-        redoubled: state.redoubledBy >= 0,
-        swept: sweepTeam >= 0,
-      });
-
-      const gamePointDelta = (bidderWon ? 1 : -1) * magnitude;
-      const newTotalScores = {
-        team0: state.totalScores.team0 + (bidderTeam === 0 ? gamePointDelta : 0),
-        team1: state.totalScores.team1 + (bidderTeam === 1 ? gamePointDelta : 0),
-      };
-
-      const isGameOver =
-        newTotalScores.team0 >= WINNING_GAME_POINTS ||
-        newTotalScores.team1 >= WINNING_GAME_POINTS ||
-        newTotalScores.team0 <= -WINNING_GAME_POINTS ||
-        newTotalScores.team1 <= -WINNING_GAME_POINTS;
-
-      const bidderName = state.players[state.bidWinner]?.name ?? 'Bidder';
-
-      let nextLog = logPush(state.gameLog, 'Round over');
-      nextLog = logPush(nextLog, `Team A scored ${roundScores.team0}`);
-      nextLog = logPush(nextLog, `Team B scored ${roundScores.team1}`);
-      nextLog = logPush(nextLog, `${bidderName} ${bidderWon ? 'made the bid' : 'missed the bid'}`);
-      if (sweepTeam >= 0) {
-        nextLog = logPush(nextLog, `Team ${sweepTeam === 0 ? 'A' : 'B'} swept all 8 tricks`);
-      }
-      if (magnitude > 1) {
-        nextLog = logPush(nextLog, `Game points x${magnitude} this round`);
-      }
-
-      return {
+      const votes = [...state.concedeVotes, playerIndex];
+      const sideSize = state.players.filter(p => p.team === actor.team).length;
+      const sideVotes = votes.filter(i => state.players[i]?.team === actor.team).length;
+      const withVote = {
         ...state,
-        gamePhase: isGameOver ? 'GAME_OVER' : 'ROUND_OVER',
-        roundScores,
-        totalScores: newTotalScores,
-        gameLog: nextLog,
+        concedeVotes: votes,
+        gameLog: logPush(state.gameLog, `${actor.name} offers to give up the round`),
       };
+      // One player cannot hand the round away; it takes the whole side.
+      if (sideVotes < sideSize) return withVote;
+
+      return endRound({
+        ...withVote,
+        concededBy: actor.team,
+        gameLog: logPush(withVote.gameLog, `Team ${actor.team === 0 ? 'A' : 'B'} gave up the round`),
+      });
     }
+
+    case 'END_ROUND':
+      return endRound(state);
 
     case 'RETURN_TO_LOBBY': {
       if (state.gamePhase !== 'GAME_OVER') return state;
@@ -867,5 +840,89 @@ function beginPlay(state: GameState): GameState {
     trickLeader: state.bidWinner,
     ledSuit: null,
     currentTrick: [],
+  };
+}
+
+/**
+ * Settles the round and moves to ROUND_OVER (or GAME_OVER). Reached either by
+ * the eighth trick finishing or by a side giving up.
+ *
+ * A concession skips the question of who had more points: the side that gave
+ * up loses, so the bidding side's result is decided by which side it was. The
+ * stake still applies — giving up a doubled round costs what a doubled round
+ * costs — but a sweep cannot, since nobody swept anything.
+ */
+function endRound(state: GameState): GameState {
+  const teamCardPoints = [0, 1].map(team =>
+    state.players
+      .filter(p => p.team === team)
+      .reduce((sum, p) => sum + cardPoints(p.capturedCards), 0),
+  );
+
+  // Last-trick bonus
+  const lastWinnerIdx = state.lastTrickWinner;
+  if (lastWinnerIdx >= 0) {
+    const lastTeam = state.players[lastWinnerIdx].team;
+    teamCardPoints[lastTeam] += LAST_TRICK_POINT;
+  }
+
+  const roundScores = { team0: teamCardPoints[0], team1: teamCardPoints[1] };
+
+  const bidderTeam = state.bidWinner >= 0 ? state.players[state.bidWinner].team : 0;
+  const target = state.bidValue + state.bidAdjustment;
+  const bidderTeamPoints = teamCardPoints[bidderTeam];
+  const conceded = state.concededBy;
+  const bidderWon = conceded !== null ? conceded !== bidderTeam : bidderTeamPoints >= target;
+
+  const teamTricksWon = [0, 1].map(team =>
+    state.players.filter(p => p.team === team).reduce((sum, p) => sum + p.tricksWon, 0),
+  );
+  const sweepTeam =
+    conceded !== null
+      ? -1
+      : teamTricksWon[bidderTeam] === NUM_TRICKS
+        ? bidderTeam
+        : teamTricksWon[1 - bidderTeam] === NUM_TRICKS
+          ? 1 - bidderTeam
+          : -1;
+  const magnitude = getGamePointMagnitude({
+    doubled: state.doubledBy >= 0,
+    redoubled: state.redoubledBy >= 0,
+    swept: sweepTeam >= 0,
+  });
+
+  const gamePointDelta = (bidderWon ? 1 : -1) * magnitude;
+  const newTotalScores = {
+    team0: state.totalScores.team0 + (bidderTeam === 0 ? gamePointDelta : 0),
+    team1: state.totalScores.team1 + (bidderTeam === 1 ? gamePointDelta : 0),
+  };
+
+  const isGameOver =
+    newTotalScores.team0 >= WINNING_GAME_POINTS ||
+    newTotalScores.team1 >= WINNING_GAME_POINTS ||
+    newTotalScores.team0 <= -WINNING_GAME_POINTS ||
+    newTotalScores.team1 <= -WINNING_GAME_POINTS;
+
+  const bidderName = state.players[state.bidWinner]?.name ?? 'Bidder';
+
+  let nextLog = logPush(state.gameLog, 'Round over');
+  nextLog = logPush(nextLog, `Team A scored ${roundScores.team0}`);
+  nextLog = logPush(nextLog, `Team B scored ${roundScores.team1}`);
+  if (conceded === null) {
+    nextLog = logPush(nextLog, `${bidderName} ${bidderWon ? 'made the bid' : 'missed the bid'}`);
+  }
+  if (sweepTeam >= 0) {
+    nextLog = logPush(nextLog, `Team ${sweepTeam === 0 ? 'A' : 'B'} swept all 8 tricks`);
+  }
+  if (magnitude > 1) {
+    nextLog = logPush(nextLog, `Game points x${magnitude} this round`);
+  }
+
+  return {
+    ...state,
+    gamePhase: isGameOver ? 'GAME_OVER' : 'ROUND_OVER',
+    roundScores,
+    totalScores: newTotalScores,
+    gameLog: nextLog,
   };
 }

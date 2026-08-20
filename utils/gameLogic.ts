@@ -1,5 +1,8 @@
-import { Card, Suit, TrickPlay } from '../types';
-import { getTrickStrength, getPointsForCard } from '../rules';
+import { Card, GameState, Suit, TrickPlay } from '../types';
+import {
+  getTrickStrength, getPointsForCard,
+  LAST_TRICK_POINT, NUM_TRICKS, TOTAL_ROUND_POINTS,
+} from '../rules';
 
 /**
  * Returns the subset of the hand that is legal to play given the led suit
@@ -93,3 +96,36 @@ export const getTrickWinner = (
 /** Sum of point values across a set of cards. */
 export const cardPoints = (cards: Card[]): number =>
   cards.reduce((s, c) => s + getPointsForCard(c), 0);
+
+/**
+ * Whether the bidding side can still reach its target. Counts every point
+ * left on the table as if they took all of it: the remaining card points
+ * plus the last-trick bonus while tricks remain.
+ *
+ * Used to decide whether a bot agrees to give a round up. It answers "is this
+ * already decided", not "is this going badly".
+ */
+export function bidderCanStillMakeIt(state: GameState): boolean {
+  if (state.bidWinner < 0) return true;
+  const bidderTeam = state.players[state.bidWinner].team;
+  const captured = state.players.reduce((sum, p) => sum + cardPoints(p.capturedCards), 0);
+  const bidderPoints = state.players
+    .filter(p => p.team === bidderTeam)
+    .reduce((sum, p) => sum + cardPoints(p.capturedCards), 0);
+
+  const tricksLeft = NUM_TRICKS - state.completedTricks.length;
+  const stillOut = (TOTAL_ROUND_POINTS - LAST_TRICK_POINT) - captured
+    + (tricksLeft > 0 ? LAST_TRICK_POINT : 0);
+
+  return bidderPoints + stillOut >= state.bidValue + state.bidAdjustment;
+}
+
+/** Whether the bidding side has already captured its target outright. */
+export function bidderAlreadyHome(state: GameState): boolean {
+  if (state.bidWinner < 0) return false;
+  const bidderTeam = state.players[state.bidWinner].team;
+  const bidderPoints = state.players
+    .filter(p => p.team === bidderTeam)
+    .reduce((sum, p) => sum + cardPoints(p.capturedCards), 0);
+  return bidderPoints >= state.bidValue + state.bidAdjustment;
+}

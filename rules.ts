@@ -154,5 +154,7 @@ ROYALS: If a player holds both K and Q of the trump suit at the moment trump is 
 
 SCORING: Count each side's card points (plus +1 to the last-trick winner). If the bidder side meets or exceeds their (adjusted) bid, they score +1 game point; otherwise -1. If either side wins all 8 tricks, the change is doubled. A double doubles it; a redouble makes it x${REDOUBLE_MULTIPLIER}. These stack, but the round can never swing more than +/-${MAX_GAME_POINT_DELTA} game points. The non-bidding side is unchanged.
 
+GIVING UP: at any point during play, a side may give up the round. It takes both of them — one player's offer stands until their partner matches it, and can be withdrawn until then. The round is then scored as a loss for the side that gave up, at whatever stake was agreed. No sweep applies, since nobody swept anything.
+
 GAME WIN: First side to +${WINNING_GAME_POINTS} game points wins. (Or first side to -${WINNING_GAME_POINTS} loses.)
 `.trim();

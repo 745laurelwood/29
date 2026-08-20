@@ -48,6 +48,8 @@ export interface GameContextValue {
   executeDeclareRoyals: () => void;
   executeDeclineRoyals: () => void;
   executeRevealTrump: () => void;
+  /** Offer to give up the round, or take the offer back. */
+  executeToggleConcede: () => void;
   canRevealTrump: boolean;
   /** No legal card left but the still-hidden seventh card — reveal or nothing. */
   mustRevealTrump: boolean;
@@ -61,6 +63,11 @@ export interface GameContextValue {
   minBidAmount: number;
   canChooseTrump: boolean;
   canDeclareRoyals: boolean;
+
+  // Giving up — takes both members of a side
+  canConcede: boolean;
+  iOfferedToConcede: boolean;
+  partnerOfferedToConcede: boolean;
 
   // Positional players
   topPlayer: number;

@@ -386,3 +386,52 @@ export function BiddingControls({
     </div>
   );
 }
+
+/**
+ * Give-up control. Both members of a side have to offer before the round is
+ * handed over, so this reads as an offer rather than a button that ends the
+ * game: it says what it is waiting for, and stays withdrawable until the
+ * partner matches it.
+ */
+export function ConcedeControl({
+  offered, partnerOffered, partnerName, onToggle,
+}: {
+  offered: boolean;
+  partnerOffered: boolean;
+  partnerName?: string;
+  onToggle: () => void;
+}) {
+  const label = offered
+    ? (partnerName ? `Waiting for ${partnerName}` : 'Offered — waiting')
+    : partnerOffered
+      ? `Agree to give up`
+      : 'Give up';
+  const title = offered
+    ? 'You have offered to give up this round. Click to take it back.'
+    : partnerOffered
+      ? 'Your partner has offered to give up. Agreeing ends the round and the opponents take it.'
+      : 'Offer to give up the round. It only counts once your partner agrees too.';
+
+  // The partner's open offer is the one state worth pulling the eye, since it
+  // is the only one waiting on this player.
+  const urgent = partnerOffered && !offered;
+  return (
+    <button
+      onClick={onToggle}
+      title={title}
+      className={`pill-chip px-3 py-1.5 flex items-center gap-2 text-xs transition-colors ${urgent ? 'animate-accent-pulse' : ''}`}
+      style={{
+        zIndex: Z_HUD,
+        color: offered || urgent ? 'var(--red)' : 'var(--dim)',
+        borderColor: offered || urgent ? 'rgba(232,146,154,0.55)' : undefined,
+        background: offered || urgent ? 'rgba(232,146,154,0.12)' : undefined,
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+        <line x1="4" y1="22" x2="4" y2="15" />
+      </svg>
+      <span className="whitespace-nowrap">{label}</span>
+    </button>
+  );
+}
