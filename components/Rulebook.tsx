@@ -128,7 +128,12 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
           </p>
           <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
             The bidder is shown that card once, and it is marked in their hand until trump is revealed.
-            Everyone else sees only that seventh card was called, never the suit.
+            Until then everyone else sees only that seventh card was called, never the suit.
+          </p>
+          <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
+            Revealing trump turns that card face up. It is the card that set the suit, so from that
+            moment every player can see exactly which card it was, for as long as it stays in the
+            bidder's hand.
           </p>
           <p className="mt-3" style={{ color: 'var(--fg-soft)' }}>
             The card stands in for a face-down trump, so the bidder <strong>cannot play it while trump

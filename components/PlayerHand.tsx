@@ -34,9 +34,12 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
     && state.currentTrick.length < NUM_PLAYERS
     && revealPhase === 'idle';
   const isMyBidTurn = state.gamePhase === 'BIDDING' && state.biddingTurn === playerIndex;
-  // The bidder's own trump reminder when they called seventh card: the modal is
-  // shown once, and nothing else displays trump before the public reveal.
-  const seventhCardId = isMe ? myHiddenTrumpCardId : null;
+  // Before the reveal the seventh card is the bidder's secret, so only they see
+  // it marked. Turning trump over turns that card face up: it is what set the
+  // suit, so from then on everyone can see which card it was, in whoever's hand
+  // it is still sitting.
+  const publicSeventhId = state.trumpRevealed ? state.seventhCardId : null;
+  const seventhCardId = (isMe ? myHiddenTrumpCardId : null) ?? publicSeventhId;
 
   const wrapperRotation = position === 'left' ? 'rotate-90' : position === 'right' ? '-rotate-90' : '';
   const wrapperScale = position !== 'bottom' ? 'scale-75' : '';
@@ -174,15 +177,19 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ playerIndex, position })
             </div>
           ) : (
             <div className="flex opp-cards -space-x-6 sm:-space-x-8 transition-all duration-300">
-              {visibleHand.map(card => (
-                <CardComponent
-                  key={card.id}
-                  card={card}
-                  faceDown={state.gamePhase !== 'GAME_OVER'}
-                  isPlayable={false}
-                  isSelected={false}
-                />
-              ))}
+              {visibleHand.map(card => {
+                const isPublicSeventh = card.id === publicSeventhId;
+                return (
+                  <CardComponent
+                    key={card.id}
+                    card={card}
+                    faceDown={state.gamePhase !== 'GAME_OVER' && !isPublicSeventh}
+                    isPlayable={false}
+                    isSelected={false}
+                    className={isPublicSeventh ? 'ring-2 ring-[color:var(--accent)]' : ''}
+                  />
+                );
+              })}
               {showEmpty && emptyPlaceholder}
             </div>
           );

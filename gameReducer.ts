@@ -1,5 +1,5 @@
 import { Card, ChatMessage, GameState, Player, Spectator, Suit, CompletedTrick } from './types';
-import { createDeck, shuffleDeck } from './utils/deck';
+import { cardFromId, createDeck, shuffleDeck } from './utils/deck';
 import { getTrickWinner, cardPoints } from './utils/gameLogic';
 import {
   getRankLabel,
@@ -586,12 +586,16 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       if (!state.trumpSuit) return state;
       const asker = state.players[action.payload.playerIndex];
       const suitName = SUIT_NAMES[state.trumpSuit];
+      // A named trump reveals only the suit. A seventh card is turned face up,
+      // so the card itself becomes public knowledge along with it.
+      const seventh = cardFromId(state.seventhCardId);
+      const what = seventh ? `${suitName} — seventh card ${cardStr(seventh)}` : suitName;
       return {
         ...state,
         trumpRevealed: true,
         revealedAtTrick: state.completedTricks.length, // current trick index
         revealerIndex: action.payload.playerIndex,
-        gameLog: logPush(state.gameLog, `${asker?.name ?? 'Someone'} revealed trump as ${suitName}`),
+        gameLog: logPush(state.gameLog, `${asker?.name ?? 'Someone'} revealed trump as ${what}`),
       };
     }
 
