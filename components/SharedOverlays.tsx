@@ -2,10 +2,11 @@ import React from 'react';
 import { CardComponent } from '@laurelwood/card-class';
 import { RoyalsOverlay } from './panels';
 import { useGame } from '../GameContext';
-import { SUIT_SYMBOLS, compareSuitForHand } from '../constants';
+import { SUIT_SYMBOLS, compareSuitForHand, getRankLabel } from '../constants';
 import { SUIT_NAMES, hasRoyals } from '../rules';
 import { compareCardStrength } from '../rules';
 import { Suit } from '../types';
+import { cardFromId } from '../utils/deck';
 
 /** Modals + transient overlays rendered by both mobile and desktop. */
 export const SharedOverlays: React.FC = () => {
@@ -186,6 +187,9 @@ export const SharedOverlays: React.FC = () => {
 
       {showTrumpToast && state.trumpSuit && (() => {
         const isRed = state.trumpSuit === Suit.Hearts || state.trumpSuit === Suit.Diamonds;
+        // Rebuilt from the id rather than looked up in a hand, so a spectator
+        // — whose copy of every hand is stripped — sees it too.
+        const revealedSeventh = cardFromId(state.seventhCardId);
         return (
           <div className="fixed top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[80] pointer-events-none">
             <div
@@ -208,6 +212,14 @@ export const SharedOverlays: React.FC = () => {
               >
                 {SUIT_SYMBOLS[state.trumpSuit]}
               </span>
+              {revealedSeventh && (
+                <span className="flex items-center gap-2" style={{ fontWeight: 500 }}>
+                  <span style={{ opacity: 0.55, fontSize: '0.85em' }}>seventh card</span>
+                  <span style={{ color: isRed ? '#c0303b' : '#111' }}>
+                    {getRankLabel(revealedSeventh.rank)}{SUIT_SYMBOLS[revealedSeventh.suit]}
+                  </span>
+                </span>
+              )}
             </div>
           </div>
         );

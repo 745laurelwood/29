@@ -142,7 +142,7 @@ DEAL: 4 cards each. Once the bid, the trump choice and the stakes are all settle
 
 BIDDING: Each player in turn (starting next to dealer) may bid (${MIN_BID}–${MAX_BID}) or pass. Each bid must exceed the previous. A pass is permanent. If everyone passes, the dealer is forced to bid ${DEFAULT_DEALER_BID}. The highest bidder chooses the trump suit (secretly).
 
-SEVENTH CARD: instead of naming a suit, the bid winner may call "seventh card". The deal is completed once the stakes are settled, and the suit of the ${SEVENTH_CARD_INDEX + 1}th card in their hand becomes trump, whatever it is. They are shown that card once; it stays hidden from everyone else until trump is revealed. It stays in their hand but cannot be played while trump is still hidden — if it becomes their only otherwise-legal card, they must reveal trump first.
+SEVENTH CARD: instead of naming a suit, the bid winner may call "seventh card". The deal is completed once the stakes are settled, and the suit of the ${SEVENTH_CARD_INDEX + 1}th card in their hand becomes trump, whatever it is. They are shown that card once; it stays hidden from everyone else until trump is revealed, at which point it is turned face up and every player can see which card it was. It stays in their hand but cannot be played while trump is still hidden — if it becomes their only otherwise-legal card, they must reveal trump first.
 
 DOUBLE: with trump set and before the last 4 cards are dealt, either defender may double, taking the round's game-point change to x${DOUBLE_MULTIPLIER}. Whoever doubles first commits their side; the window closes once both have declined.
 

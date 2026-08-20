@@ -22,3 +22,18 @@ export const shuffleDeck = (deck: Card[]): Card[] => {
 };
 
 export { getPointsForCard } from '../rules';
+
+/**
+ * Rebuilds a card from its id. Ids are `${suit}-${rank}`, so a holder of the
+ * id alone can name the card without needing the hand it sits in — which is
+ * what lets a spectator, whose copy of every hand is stripped, still see the
+ * seventh card once trump is revealed.
+ */
+export const cardFromId = (id: string | null): Card | null => {
+  if (!id) return null;
+  const [suit, rank] = id.split('-');
+  const r = Number(rank);
+  if (!Number.isFinite(r)) return null;
+  if (!(Object.values(Suit) as string[]).includes(suit)) return null;
+  return { suit: suit as Suit, rank: r, id };
+};

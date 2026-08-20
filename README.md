@@ -38,7 +38,9 @@ The winner picks a **trump suit secretly**. The last 4 cards stay in the deck un
 
 If the bid winner is unsure what to pick as trump, they may declare **seventh card** instead of naming a suit. Once the stakes are settled the dealer completes the deal, and the 7th card in the bidder's hand becomes the trump, whatever it turns out to be — the call is made sight unseen and cannot be taken back.
 
-The bidder is shown that card once and it stays marked in their hand until trump is revealed. Everyone else sees only that seventh card was called, never the suit.
+The bidder is shown that card once and it stays marked in their hand until trump is revealed. Until then everyone else sees only that seventh card was called, never the suit.
+
+Revealing trump turns that card face up. It is the card that set the suit, so from that moment every player can see exactly which card it was, for as long as it is still in the bidder's hand.
 
 The card stands in for a face-down trump: the bidder **cannot play it while trump is still hidden**. If it becomes their only otherwise-legal card — the led suit turns out to be trump and it is their only one, or it is the last card in their hand — they must reveal trump before they can play it.
 
