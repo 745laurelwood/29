@@ -122,6 +122,7 @@ export const MobileView: React.FC = () => {
     revealPhase,
     canRevealTrump, mustRevealTrump, executeRevealTrump,
     myHiddenTrumpCardId,
+    canConcede, iOfferedToConcede, partnerOfferedToConcede, executeToggleConcede,
   } = useGame();
 
   // Spectators don't get chat, captures pop-overs, or any interactive surface.
@@ -317,6 +318,29 @@ export const MobileView: React.FC = () => {
                 )}
               </span>
             </div>
+            {canConcede && (
+              <>
+                <div className="m-hs-divider" />
+                <button
+                  className="m-hud-btn"
+                  onClick={executeToggleConcede}
+                  title={iOfferedToConcede
+                    ? 'You have offered to give up this round. Tap to take it back.'
+                    : partnerOfferedToConcede
+                      ? 'Your partner has offered to give up. Agreeing ends the round.'
+                      : 'Offer to give up the round. It only counts once your partner agrees too.'}
+                  aria-label="Give up the round"
+                  style={{
+                    color: iOfferedToConcede || partnerOfferedToConcede ? 'var(--red)' : undefined,
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                    <line x1="4" y1="22" x2="4" y2="15" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         </header>
 

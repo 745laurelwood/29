@@ -224,6 +224,20 @@ export const Rulebook: React.FC<RulebookProps> = ({ onClose }) => {
           </p>
         </section>
 
+        <section className="mb-8">
+          <h2 className="font-display text-xl sm:text-2xl mb-3" style={{ color: 'var(--fg)' }}>Giving Up</h2>
+          <p className="mb-3" style={{ color: 'var(--fg-soft)' }}>
+            At any point during play, a side may give up the round. It takes <strong>both</strong> of
+            them: one player's offer stands until their partner matches it, and can be withdrawn until
+            then, so nobody can hand the round away on their own.
+          </p>
+          <p style={{ color: 'var(--fg-soft)' }}>
+            The round is then scored as a loss for the side that gave up, at whatever stake was already
+            agreed &mdash; a doubled round given up still costs double. No sweep bonus applies, since
+            nobody swept anything.
+          </p>
+        </section>
+
         <section className="mb-10">
           <h2 className="font-display text-xl sm:text-2xl mb-3" style={{ color: 'var(--fg)' }}>Winning the Game</h2>
           <p style={{ color: 'var(--fg-soft)' }}>

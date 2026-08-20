@@ -189,13 +189,20 @@ export const FeltContent: React.FC = () => {
             {bidder && (
               <>
                 <span className={TEAM_TEXT_COLORS[bidderTeam]}>{bidder.name}</span>
-                {bidderMade ? ' made the bid' : ' missed the bid'}
+                {state.concededBy !== null
+                  ? (state.concededBy === bidderTeam ? ' gave the round up' : ' was handed the round')
+                  : (bidderMade ? ' made the bid' : ' missed the bid')}
               </>
             )}
           </div>
           <div className="text-xs sm:text-sm mt-1" style={{ color: 'var(--fg-soft)' }}>
             Target {target}{bidAdjustment !== 0 ? ` (${bidValue}${bidAdjustment > 0 ? '+' : ''}${bidAdjustment})` : ''} · Scored {bidderPts}
           </div>
+          {state.concededBy !== null && (
+            <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--red)' }}>
+              Team {TEAM_LABELS[state.concededBy]} gave up the round
+            </div>
+          )}
           {sweepTeam >= 0 && (
             <div className="text-xs sm:text-sm mt-2 font-semibold" style={{ color: 'var(--accent)' }}>
               Team {TEAM_LABELS[sweepTeam]} swept all 8 tricks

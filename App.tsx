@@ -21,7 +21,10 @@ import { GameProvider, GameContextValue } from './GameContext';
 import { MobileView } from './views/MobileView';
 import { DesktopView } from './views/DesktopView';
 import { Lobby } from './views/Lobby';
-import { getPlayableCards, getPlayableCardsHidingTrump, canFollowSuit, getTrickWinner } from './utils/gameLogic';
+import {
+  getPlayableCards, getPlayableCardsHidingTrump, canFollowSuit, getTrickWinner,
+  bidderCanStillMakeIt, bidderAlreadyHome,
+} from './utils/gameLogic';
 
 const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
 
@@ -248,7 +251,8 @@ export default function App() {
   const CLIENT_ALLOWED_ACTIONS = new Set<Action['type']>([
     'PLACE_BID', 'PASS_BID', 'CHOOSE_TRUMP', 'DECLARE_SEVENTH_CARD',
     'DOUBLE', 'DECLINE_DOUBLE', 'REDOUBLE', 'DECLINE_REDOUBLE', 'PLAY_CARD',
-    'REVEAL_TRUMP', 'DECLARE_ROYALS', 'SKIP_ROYALS', 'SET_PLAYER_TEAM', 'SEND_CHAT',
+    'REVEAL_TRUMP', 'DECLARE_ROYALS', 'SKIP_ROYALS', 'TOGGLE_CONCEDE',
+    'SET_PLAYER_TEAM', 'SEND_CHAT',
     'RETURN_TO_LOBBY',
   ]);
 
@@ -852,6 +856,42 @@ export default function App() {
     isHost, isMultiplayer,
   ]);
 
+  // ── AI: answering an offer to give up ──
+  // A bot never opens the question; it only answers a teammate who has. It
+  // agrees when the round is already decided — the bid is out of reach, or
+  // already made — rather than on how badly things are going, so a human
+  // cannot talk a bot into throwing a round that is still live.
+  useEffect(() => {
+    if (!isHost && isMultiplayer) return;
+    if (state.gamePhase !== 'PLAYING') return;
+    if (state.concedeVotes.length === 0) return;
+    const bidder = state.players[state.bidWinner];
+    if (!bidder) return;
+
+    const pending = state.players.find(p =>
+      !p.isHuman
+      && !state.concedeVotes.includes(p.id)
+      && state.players.some(t => t.team === p.team && t.id !== p.id && state.concedeVotes.includes(t.id)),
+    );
+    if (!pending) return;
+
+    // The bidding side gives up once the bid is out of reach; the defenders
+    // once it has already been made. Either way the round is over on paper.
+    const decided = pending.team === bidder.team
+      ? !bidderCanStillMakeIt(state)
+      : bidderAlreadyHome(state);
+    if (!decided) return;
+
+    const idx = pending.id;
+    const timer = setTimeout(() => {
+      dispatch({ type: 'TOGGLE_CONCEDE', payload: { playerIndex: idx } });
+    }, AI_STAKES_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [
+    state.gamePhase, state.concedeVotes?.length, state.completedTricks.length,
+    isHost, isMultiplayer,
+  ]);
+
   // ── AI: trump selection ──
   useEffect(() => {
     if (!isHost && isMultiplayer) return;
@@ -1108,6 +1148,15 @@ export default function App() {
     !state.royalsDeclared
   );
 
+  // ── Giving up ──
+  // Offered at any point during play; it only takes effect once the whole side
+  // has offered, so one player cannot hand the round away on their own.
+  const canConcede = !isSpectator && state.gamePhase === 'PLAYING' && !!me;
+  const iOfferedToConcede = !!me && state.concedeVotes.includes(myIndex);
+  const partnerOfferedToConcede = !!me && state.players.some(
+    p => p.team === me.team && p.id !== myIndex && state.concedeVotes.includes(p.id),
+  );
+
   // ── Human actions ──
   const executePlayCard = (cardId: string) => {
     if (!isMyTurn || !me) return;
@@ -1116,6 +1165,11 @@ export default function App() {
     const payload = { playerIndex: myIndex, cardId };
     if (isMultiplayer) publishMoveAnnounce(payload);
     executeOrchestratedPlay(payload);
+  };
+
+  const executeToggleConcede = () => {
+    if (!canConcede) return;
+    handleDispatch({ type: 'TOGGLE_CONCEDE', payload: { playerIndex: myIndex } });
   };
 
   const executeRevealTrump = () => {
@@ -1259,8 +1313,9 @@ export default function App() {
     executeRedouble, executeDeclineRedouble,
     executeChooseTrump, executeDeclareSeventhCard,
     executeDeclareRoyals, executeDeclineRoyals,
-    executeRevealTrump,
+    executeRevealTrump, executeToggleConcede,
     canRevealTrump, mustRevealTrump, myHiddenTrumpCardId,
+    canConcede, iOfferedToConcede, partnerOfferedToConcede,
     canBid, canDouble, canRedouble, minBidAmount,
     canChooseTrump, canDeclareRoyals,
     topPlayer, leftPlayer, rightPlayer, bottomPlayer,

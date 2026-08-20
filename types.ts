@@ -94,6 +94,10 @@ export interface GameState {
   // History
   completedTricks: CompletedTrick[];
 
+  // Concession — both members of a side must agree before a round is given up.
+  concedeVotes: number[];        // seat indices currently offering to give up
+  concededBy: 0 | 1 | null;      // the side that gave up, once both of them agreed
+
   // Scoring
   roundScores: { team0: number; team1: number }; // card points this round
   totalScores: { team0: number; team1: number }; // game points (cumulative, can be negative)
